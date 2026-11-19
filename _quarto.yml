@@ -1,0 +1,13 @@
+project:
+  type: default
+  execute-dir: project
+  render:
+    - reports/student-academic-outcomes.qmd
+
+format:
+  html:
+    toc: true
+    embed-resources: true
+
+execute:
+  echo: true

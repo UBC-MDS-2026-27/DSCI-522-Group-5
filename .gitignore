@@ -1,0 +1,9 @@
+.venv/
+.DS_Store
+Thumbs.db
+__pycache__/
+.ipynb_checkpoints/
+.quarto/
+.env
+/.quarto/
+**/*.quarto_ipynb
