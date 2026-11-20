@@ -18,9 +18,52 @@ jupyter: python3
 ## Computational setup
 
 ## Data acquisition
+```{python}
+from io import BytesIO
+from pathlib import Path
+from urllib.request import urlopen
+from zipfile import ZipFile
+
+import pandas as pd
+
+url = (
+    "https://archive.ics.uci.edu/static/public/697/"
+    "predict+students+dropout+and+academic+success.zip"
+)
+raw_path = Path("data/raw/data.csv")
+raw_path.parent.mkdir(parents=True, exist_ok=True)
+
+with urlopen(url, timeout=30) as response:
+    archive = BytesIO(response.read())
+
+with ZipFile(archive) as dataset_zip:
+    raw_path.write_bytes(dataset_zip.read("data.csv"))
+
+students = pd.read_csv(raw_path, sep=";")
+```
 
 
 ## Training and test split
+```{python}
+from sklearn.model_selection import train_test_split
+
+semester_columns = students.columns.str.startswith(
+    ("Curricular units 1st sem", "Curricular units 2nd sem")
+)
+candidate_data = students.loc[:, ~semester_columns]
+
+train, test = train_test_split(
+    candidate_data,
+    test_size=0.20,
+    random_state=522,
+    stratify=candidate_data["Target"],
+)
+
+processed_dir = Path("data/processed")
+processed_dir.mkdir(parents=True, exist_ok=True)
+train.to_csv(processed_dir / "train.csv", index=False)
+test.to_csv(processed_dir / "test.csv", index=False)
+```
 
 ## EDA
 
