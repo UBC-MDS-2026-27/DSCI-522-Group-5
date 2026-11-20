@@ -47,7 +47,9 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import PercentFormatter
 import pandas as pd
 from IPython.display import HTML, display
+from sklearn.compose import ColumnTransformer
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 work_dir = Path.cwd()
 project_env = os.environ.get("QUARTO_PROJECT_DIR")
@@ -117,6 +119,28 @@ def outcome_mix(groups, outcomes):
 ```
 
 ## Model and evaluation
+
+### Predictor selection and preprocessing
+
+We selected five predictors based on enrollment timing and the comparisons in the training data. Program and application route capture differences in how students enter higher education. Age and admission grade allow the model to examine differences among students who enter through the same route. We also included the scholarship indicator, assuming it reflects the student's status at enrollment. We excluded debt and fee status because the dates of those records are uncertain.
+
+For logistic regression, we use a separate indicator for each program and application route because their numeric codes identify categories. We standardize age and admission grade so their different units do not determine the strength of regularization. Scholarship status already uses a binary indicator. The preprocessor is defined here for use inside the model pipeline, where it can learn categories, means, and standard deviations using only the training portion of each cross-validation fold. [3](#ref-validation)
+
+```{python}
+categorical_features = ["Course", "Application mode"]
+numeric_features = ["Age at enrollment", "Admission grade"]
+binary_features = ["Scholarship holder"]
+predictors = categorical_features + numeric_features + binary_features
+
+X_train, y_train = train[predictors], train["Target"]
+X_test, y_test = test[predictors], test["Target"]
+
+preprocessor = ColumnTransformer([
+    ("categorical", OneHotEncoder(handle_unknown="ignore"), categorical_features),
+    ("numeric", StandardScaler(), numeric_features),
+    ("binary", "passthrough", binary_features),
+])
+```
 
 # Exploratory findings
 ### What information is available for exploration?
