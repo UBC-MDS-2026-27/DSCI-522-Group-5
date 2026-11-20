@@ -2236,7 +2236,10 @@ var requirejs,require,define;(function(global,setTimeout){var req,s,head,baseEle
   <ul class="collapse">
   <li><a href="#data-acquisition-and-computational-setup" id="toc-data-acquisition-and-computational-setup" class="nav-link" data-scroll-target="#data-acquisition-and-computational-setup">Data acquisition and computational setup</a></li>
   <li><a href="#training-and-test-split" id="toc-training-and-test-split" class="nav-link" data-scroll-target="#training-and-test-split">Training and test split</a></li>
-  <li><a href="#exploratory-analysis" id="toc-exploratory-analysis" class="nav-link" data-scroll-target="#exploratory-analysis">Exploratory analysis</a>
+  <li><a href="#exploratory-analysis" id="toc-exploratory-analysis" class="nav-link" data-scroll-target="#exploratory-analysis">Exploratory analysis</a></li>
+  <li><a href="#model-and-evaluation" id="toc-model-and-evaluation" class="nav-link" data-scroll-target="#model-and-evaluation">Model and evaluation</a></li>
+  </ul></li>
+  <li><a href="#exploratory-findings" id="toc-exploratory-findings" class="nav-link" data-scroll-target="#exploratory-findings">Exploratory findings</a>
   <ul class="collapse">
   <li><a href="#what-information-is-available-for-exploration" id="toc-what-information-is-available-for-exploration" class="nav-link" data-scroll-target="#what-information-is-available-for-exploration">What information is available for exploration?</a></li>
   <li><a href="#how-common-was-each-academic-outcome" id="toc-how-common-was-each-academic-outcome" class="nav-link" data-scroll-target="#how-common-was-each-academic-outcome">How common was each academic outcome?</a></li>
@@ -2245,9 +2248,10 @@ var requirejs,require,define;(function(global,setTimeout){var req,s,head,baseEle
   <li><a href="#what-can-two-programs-with-similar-dropout-shares-tell-us-about-continued-enrollment" id="toc-what-can-two-programs-with-similar-dropout-shares-tell-us-about-continued-enrollment" class="nav-link" data-scroll-target="#what-can-two-programs-with-similar-dropout-shares-tell-us-about-continued-enrollment">What can two programs with similar dropout shares tell us about continued enrollment?</a></li>
   <li><a href="#which-financial-differences-are-large-enough-to-investigate-and-when-were-they-observable" id="toc-which-financial-differences-are-large-enough-to-investigate-and-when-were-they-observable" class="nav-link" data-scroll-target="#which-financial-differences-are-large-enough-to-investigate-and-when-were-they-observable">Which financial differences are large enough to investigate, and when were they observable?</a></li>
   </ul></li>
-  <li><a href="#model-and-evaluation" id="toc-model-and-evaluation" class="nav-link" data-scroll-target="#model-and-evaluation">Model and evaluation</a></li>
+  <li><a href="#results" id="toc-results" class="nav-link" data-scroll-target="#results">Results</a>
+  <ul class="collapse">
+  <li><a href="#classifier-selection-and-cross-validation" id="toc-classifier-selection-and-cross-validation" class="nav-link" data-scroll-target="#classifier-selection-and-cross-validation">Classifier selection and cross-validation</a></li>
   </ul></li>
-  <li><a href="#discussion" id="toc-discussion" class="nav-link" data-scroll-target="#discussion">Discussion</a></li>
   <li><a href="#references" id="toc-references" class="nav-link" data-scroll-target="#references">References</a></li>
   </ul>
 </nav>
@@ -2298,7 +2302,7 @@ var requirejs,require,define;(function(global,setTimeout){var req,s,head,baseEle
 <section id="data-acquisition-and-computational-setup" class="level2">
 <h2 class="anchored" data-anchor-id="data-acquisition-and-computational-setup">Data acquisition and computational setup</h2>
 <p>We used Python for the analysis, pandas to organize the records, scikit-learn to partition the data, and Matplotlib to draw the figures. The code downloads the original archive from the University of California, Irvine (UCI) Machine Learning Repository, saves its CSV file in the project’s raw-data directory and reads its semicolon-delimited fields. <a href="#ref-data">1</a></p>
-<div id="2eba67bc" class="cell" data-execution_count="1">
+<div id="02122431" class="cell" data-execution_count="1">
 <details class="code-fold">
 <summary>Show analysis code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> os</span>
@@ -2323,7 +2327,7 @@ var requirejs,require,define;(function(global,setTimeout){var req,s,head,baseEle
 <span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>    project_root <span class="op">=</span> work_dir</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 </div>
-<div id="7706e2a3" class="cell" data-execution_count="2">
+<div id="88eeba41" class="cell" data-execution_count="2">
 <details class="code-fold">
 <summary>Show analysis code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>url <span class="op">=</span> (<span class="st">&quot;https://archive.ics.uci.edu/static/public/697/&quot;</span></span>
@@ -2345,7 +2349,7 @@ var requirejs,require,define;(function(global,setTimeout){var req,s,head,baseEle
 <section id="training-and-test-split" class="level2">
 <h2 class="anchored" data-anchor-id="training-and-test-split">Training and test split</h2>
 <p>We first split the 4,424 raw records into 80% training and 20% test data, stratifying by outcome so both partitions retain similar class proportions. A fixed random seed reproduces the split. We then removed the 12 semester-performance columns from both partitions and trimmed whitespace from the column names. This left 24 candidate predictors and the target. We saved the processed partitions separately. All exploratory comparisons below use the training partition.</p>
-<div id="18401a79" class="cell" data-execution_count="3">
+<div id="35726316" class="cell" data-execution_count="3">
 <details class="code-fold">
 <summary>Show analysis code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>train, test <span class="op">=</span> train_test_split(</span>
@@ -2372,7 +2376,7 @@ var requirejs,require,define;(function(global,setTimeout){var req,s,head,baseEle
 <section id="exploratory-analysis" class="level2">
 <h2 class="anchored" data-anchor-id="exploratory-analysis">Exploratory analysis</h2>
 <p>We counted outcomes, checked missing values and duplicate records, and used the source dictionary to interpret numeric category codes. For age and admission grade, we compared medians and the middle 50% of students within each outcome. For application route, program and financial status, we calculated percentages within each subgroup and reported its size. This matters because program enrollments range from eight to several hundred training students. We used these comparisons to propose features for classification. <a href="#ref-data">1</a></p>
-<div id="93db86e3" class="cell" data-execution_count="4">
+<div id="c068688b" class="cell" data-execution_count="4">
 <details class="code-fold">
 <summary>Show analysis code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>eda <span class="op">=</span> train</span>
@@ -2386,10 +2390,17 @@ var requirejs,require,define;(function(global,setTimeout){var req,s,head,baseEle
 <span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> percentages.assign(Students<span class="op">=</span>sizes)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 </div>
+</section>
+<section id="model-and-evaluation" class="level2">
+<h2 class="anchored" data-anchor-id="model-and-evaluation">Model and evaluation</h2>
+</section>
+</section>
+<section id="exploratory-findings" class="level1">
+<h1>Exploratory findings</h1>
 <section id="what-information-is-available-for-exploration" class="level3">
 <h3 class="anchored" data-anchor-id="what-information-is-available-for-exploration">What information is available for exploration?</h3>
 <p><strong>Table 1. Size and completeness of the training data. The last two rows count explicit “unknown” codes in the source data dictionary.</strong></p>
-<div id="f87cd262" class="cell" data-execution_count="5">
+<div id="113b2524" class="cell" data-execution_count="5">
 <details class="code-fold">
 <summary>Show analysis code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>profile <span class="op">=</span> pd.DataFrame({</span>
@@ -2619,7 +2630,7 @@ Figure 4: Percentage of students in each outcome within each program. Each row 
 <section id="which-financial-differences-are-large-enough-to-investigate-and-when-were-they-observable" class="level3">
 <h3 class="anchored" data-anchor-id="which-financial-differences-are-large-enough-to-investigate-and-when-were-they-observable">Which financial differences are large enough to investigate, and when were they observable?</h3>
 <p><strong>Table 2. Academic outcomes within each recorded financial status. Each pair of rows describes the full training set. Percentages across a row may differ slightly from 100 because of rounding.</strong></p>
-<div id="a202e264" class="cell" data-execution_count="10">
+<div id="e7497870" class="cell" data-execution_count="10">
 <details class="code-fold">
 <summary>Show analysis code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>financial_tables <span class="op">=</span> []</span>
@@ -2706,14 +2717,14 @@ Figure 4: Percentage of students in each outcome within each program. Each row 
 </div>
 <p>Table 2 shows that 88.2% of students with outstanding fees dropped out, compared with 24.7% of those whose fees were current. Reading across the scholarship rows reveals a different pattern. Graduation was recorded for 75.5% of scholarship holders and 41.4% of students without a scholarship. These comparisons describe associations. They cannot tell us whether paying fees or receiving a scholarship would change an individual student’s outcome.</p>
 <p>For the adviser, the decisive question is <strong>when the status was recorded</strong>. A balance updated after a student left could make past dropout easy to recognize without helping predict it at enrollment. The file supplies no student-level date for these financial records. That is why a large difference can justify investigating a feature while still leaving it out of the initial model.</p>
+<p>The training data suggest that program, application route, and age at enrollment are worth examining together. Students with different outcomes often had similar admission grades, so the value of grade alongside those other predictors remains a question for model validation. Financial status also varied across outcomes, but its use for prediction depends on confirming what was recorded by enrollment.</p>
 </section>
 </section>
-<section id="model-and-evaluation" class="level2">
-<h2 class="anchored" data-anchor-id="model-and-evaluation">Model and evaluation</h2>
+<section id="results" class="level1">
+<h1>Results</h1>
+<section id="classifier-selection-and-cross-validation" class="level2">
+<h2 class="anchored" data-anchor-id="classifier-selection-and-cross-validation">Classifier selection and cross-validation</h2>
 </section>
-</section>
-<section id="discussion" class="level1">
-<h1>Discussion</h1>
 </section>
 <section id="references" class="level1">
 <h1>References</h1>
