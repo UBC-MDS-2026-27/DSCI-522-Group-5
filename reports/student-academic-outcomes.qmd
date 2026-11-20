@@ -60,8 +60,9 @@ semester_columns = train.columns[
 train = train.drop(columns=semester_columns).rename(columns=str.strip)
 test = test.drop(columns=semester_columns).rename(columns=str.strip)
 
-processed_dir = Path("data/processed")
+processed_dir = Path("../data/processed")
 processed_dir.mkdir(parents=True, exist_ok=True)
+
 train.to_csv(processed_dir / "train.csv", index=False)
 test.to_csv(processed_dir / "test.csv", index=False)
 ```
