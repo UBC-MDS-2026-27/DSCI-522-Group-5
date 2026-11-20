@@ -1,0 +1,30 @@
+---
+title:"DSCI 522: Group 5Predicting Student Dropout and Academic Success"
+author:
+  - "Bodie (YiChuan) Li"
+  - "Colby Yurkiw"
+  - "Ganiyat Adekunle"
+  - "Rupesh Patel"
+jupyter: python3
+---
+
+# Summary
+
+
+# Introduction
+
+# Methods
+
+## Computational setup
+
+## Data acquisition
+
+
+## Training and test split
+
+## EDA
+
+## Model and evaluation
+
+# Results
+
