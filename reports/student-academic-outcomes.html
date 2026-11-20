@@ -11,7 +11,7 @@
 <meta name="author" content="Ganiyat Adekunle">
 <meta name="author" content="Rupesh Patel">
 
-<title>student-academic-outcomes</title>
+<title>Predicting academic outcomes from student enrollment records</title>
 <style>
 
 span.smallcaps{font-variant: small-caps;}
@@ -2247,7 +2247,8 @@ var requirejs,require,define;(function(global,setTimeout){var req,s,head,baseEle
   </ul></li>
   <li><a href="#model-and-evaluation" id="toc-model-and-evaluation" class="nav-link" data-scroll-target="#model-and-evaluation">Model and evaluation</a></li>
   </ul></li>
-  <li><a href="#results" id="toc-results" class="nav-link" data-scroll-target="#results">Results</a></li>
+  <li><a href="#discussion" id="toc-discussion" class="nav-link" data-scroll-target="#discussion">Discussion</a></li>
+  <li><a href="#references" id="toc-references" class="nav-link" data-scroll-target="#references">References</a></li>
   </ul>
 </nav>
 </div>
@@ -2255,7 +2256,8 @@ var requirejs,require,define;(function(global,setTimeout){var req,s,head,baseEle
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
-<h1 class="title">Training and test split</h1>
+<h1 class="title">Predicting academic outcomes from student enrollment records</h1>
+<p class="subtitle lead">DSCI 522 · Group 5</p>
 </div>
 
 
@@ -2283,6 +2285,7 @@ var requirejs,require,define;(function(global,setTimeout){var req,s,head,baseEle
 
 <section id="summary" class="level1">
 <h1>Summary</h1>
+<p>How well can information available at enrollment predict dropout, continued enrollment and graduation? We study 4,424 students at a Portuguese higher education institution and reserve 885 for evaluation. Among the 3,539 training students, the dropout and still-enrolled groups had the same median admission grade, yet programs with similar dropout shares differed in how many students were still studying at the cutoff.</p>
 </section>
 <section id="introduction" class="level1">
 <h1>Introduction</h1>
@@ -2295,7 +2298,7 @@ var requirejs,require,define;(function(global,setTimeout){var req,s,head,baseEle
 <section id="data-acquisition-and-computational-setup" class="level2">
 <h2 class="anchored" data-anchor-id="data-acquisition-and-computational-setup">Data acquisition and computational setup</h2>
 <p>We used Python for the analysis, pandas to organize the records, scikit-learn to partition the data, and Matplotlib to draw the figures. The code downloads the original archive from the University of California, Irvine (UCI) Machine Learning Repository, saves its CSV file in the project’s raw-data directory and reads its semicolon-delimited fields. <a href="#ref-data">1</a></p>
-<div id="3084ef6b" class="cell" data-execution_count="1">
+<div id="2eba67bc" class="cell" data-execution_count="1">
 <details class="code-fold">
 <summary>Show analysis code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> os</span>
@@ -2320,7 +2323,7 @@ var requirejs,require,define;(function(global,setTimeout){var req,s,head,baseEle
 <span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>    project_root <span class="op">=</span> work_dir</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 </div>
-<div id="e510299b" class="cell" data-execution_count="2">
+<div id="7706e2a3" class="cell" data-execution_count="2">
 <details class="code-fold">
 <summary>Show analysis code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>url <span class="op">=</span> (<span class="st">&quot;https://archive.ics.uci.edu/static/public/697/&quot;</span></span>
@@ -2342,7 +2345,7 @@ var requirejs,require,define;(function(global,setTimeout){var req,s,head,baseEle
 <section id="training-and-test-split" class="level2">
 <h2 class="anchored" data-anchor-id="training-and-test-split">Training and test split</h2>
 <p>We first split the 4,424 raw records into 80% training and 20% test data, stratifying by outcome so both partitions retain similar class proportions. A fixed random seed reproduces the split. We then removed the 12 semester-performance columns from both partitions and trimmed whitespace from the column names. This left 24 candidate predictors and the target. We saved the processed partitions separately. All exploratory comparisons below use the training partition.</p>
-<div id="20055b31" class="cell" data-execution_count="3">
+<div id="18401a79" class="cell" data-execution_count="3">
 <details class="code-fold">
 <summary>Show analysis code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>train, test <span class="op">=</span> train_test_split(</span>
@@ -2369,7 +2372,7 @@ var requirejs,require,define;(function(global,setTimeout){var req,s,head,baseEle
 <section id="exploratory-analysis" class="level2">
 <h2 class="anchored" data-anchor-id="exploratory-analysis">Exploratory analysis</h2>
 <p>We counted outcomes, checked missing values and duplicate records, and used the source dictionary to interpret numeric category codes. For age and admission grade, we compared medians and the middle 50% of students within each outcome. For application route, program and financial status, we calculated percentages within each subgroup and reported its size. This matters because program enrollments range from eight to several hundred training students. We used these comparisons to propose features for classification. <a href="#ref-data">1</a></p>
-<div id="cde2854a" class="cell" data-execution_count="4">
+<div id="93db86e3" class="cell" data-execution_count="4">
 <details class="code-fold">
 <summary>Show analysis code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>eda <span class="op">=</span> train</span>
@@ -2386,7 +2389,7 @@ var requirejs,require,define;(function(global,setTimeout){var req,s,head,baseEle
 <section id="what-information-is-available-for-exploration" class="level3">
 <h3 class="anchored" data-anchor-id="what-information-is-available-for-exploration">What information is available for exploration?</h3>
 <p><strong>Table 1. Size and completeness of the training data. The last two rows count explicit “unknown” codes in the source data dictionary.</strong></p>
-<div id="e45d3e94" class="cell" data-execution_count="5">
+<div id="f87cd262" class="cell" data-execution_count="5">
 <details class="code-fold">
 <summary>Show analysis code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>profile <span class="op">=</span> pd.DataFrame({</span>
@@ -2616,7 +2619,7 @@ Figure 4: Percentage of students in each outcome within each program. Each row 
 <section id="which-financial-differences-are-large-enough-to-investigate-and-when-were-they-observable" class="level3">
 <h3 class="anchored" data-anchor-id="which-financial-differences-are-large-enough-to-investigate-and-when-were-they-observable">Which financial differences are large enough to investigate, and when were they observable?</h3>
 <p><strong>Table 2. Academic outcomes within each recorded financial status. Each pair of rows describes the full training set. Percentages across a row may differ slightly from 100 because of rounding.</strong></p>
-<div id="335830d1" class="cell" data-execution_count="10">
+<div id="a202e264" class="cell" data-execution_count="10">
 <details class="code-fold">
 <summary>Show analysis code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>financial_tables <span class="op">=</span> []</span>
@@ -2709,8 +2712,17 @@ Figure 4: Percentage of students in each outcome within each program. Each row 
 <h2 class="anchored" data-anchor-id="model-and-evaluation">Model and evaluation</h2>
 </section>
 </section>
-<section id="results" class="level1">
-<h1>Results</h1>
+<section id="discussion" class="level1">
+<h1>Discussion</h1>
+</section>
+<section id="references" class="level1">
+<h1>References</h1>
+<ol type="1">
+<li><span id="ref-data">Realinho, V., Vieira Martins, M., Machado, J., and Baptista, L. (2021). <em>Predict Students’ Dropout and Academic Success</em>. UCI Machine Learning Repository.</span> <a href="https://doi.org/10.24432/C5MC89">Dataset and variable definitions</a></li>
+<li><span id="ref-paper">Realinho, V., Machado, J., Baptista, L., and Martins, M. V. (2022). <em>Predicting Student Dropout and Academic Success</em>. Data, 7(11), 146.</span> <a href="https://doi.org/10.3390/data7110146">Dataset paper</a></li>
+<li><span id="ref-validation">Scikit-learn developers. <em>Cross-validation</em>.</span> <a href="https://scikit-learn.org/stable/modules/cross_validation.html">User guide</a></li>
+<li><span id="ref-f1">Scikit-learn developers. <em>F1 score</em>.</span> <a href="https://scikit-learn.org/stable/modules/generated/sklearn.metrics.f1_score.html">Metric definition and averaging options</a></li>
+</ol>
 </section>
 
 </main>
