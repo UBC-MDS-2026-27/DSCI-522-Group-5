@@ -1,5 +1,5 @@
 ---
-title:"DSCI 522: Group 5Predicting Student Dropout and Academic Success"
+title:"DSCI 522: Group 5 Predicting Student Dropout and Academic Success"
 author:
   - "Bodie (YiChuan) Li"
   - "Colby Yurkiw"
@@ -47,17 +47,18 @@ students = pd.read_csv(raw_path, sep=";")
 ```{python}
 from sklearn.model_selection import train_test_split
 
-semester_columns = students.columns.str.startswith(
-    ("Curricular units 1st sem", "Curricular units 2nd sem")
-)
-candidate_data = students.loc[:, ~semester_columns]
-
 train, test = train_test_split(
-    candidate_data,
+    students,
     test_size=0.20,
     random_state=522,
-    stratify=candidate_data["Target"],
+    stratify=students["Target"],
 )
+
+semester_columns = train.columns[
+    train.columns.str.startswith(("Curricular units 1st sem", "Curricular units 2nd sem"))
+]
+train = train.drop(columns=semester_columns).rename(columns=str.strip)
+test = test.drop(columns=semester_columns).rename(columns=str.strip)
 
 processed_dir = Path("data/processed")
 processed_dir.mkdir(parents=True, exist_ok=True)
