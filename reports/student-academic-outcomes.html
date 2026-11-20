@@ -2300,14 +2300,14 @@ var requirejs,require,define;(function(global,setTimeout){var req,s,head,baseEle
 <h1>Introduction</h1>
 <p>An academic adviser meets a new student before the student has taken a course or earned a semester grade. At that point, the institution already knows the program the student entered, how they applied and their admission grade. If these details help distinguish later academic outcomes, they could inform which students are offered an early conversation about support. A missed dropout could mean a missed opportunity for outreach. Equally, a student who needs longer to finish could be misidentified as having left.</p>
 <p><strong>Using information available at enrollment, how well can we predict whether a student will have dropped out, still be enrolled, or have graduated by the end of their program’s normal duration?</strong></p>
-<p>We use the public <em>Predict Students’ Dropout and Academic Success</em> dataset. Each row represents one undergraduate student at the Polytechnic Institute of Portalegre in Portugal. Students are observed across 17 programs. The target is their recorded academic status at the end of the program’s normal duration. A student labeled <em>Enrolled</em> was still studying at that cutoff and could graduate later. The source also contains academic performance recorded at the end of each of the first two semesters. This distinction between entry information and later observations determines which variables are eligible for an enrollment-time prediction. <a href="#ref-data">1</a>, <a href="#ref-paper">2</a></p>
+<p>We use the public <em>Predict Students’ Dropout and Academic Success</em> dataset. Each of the 4,424 rows represents one undergraduate student at the Polytechnic Institute of Portalegre in Portugal, across 17 programs. The source records 36 predictors covering prior education, demographics, socioeconomic conditions and academic performance. The target is their recorded academic status at the end of the program’s normal duration. A student labeled <em>Enrolled</em> was still studying at that cutoff and could graduate later. The source also contains academic performance recorded at the end of each of the first two semesters. This distinction between entry information and later observations determines which variables are eligible for an enrollment-time prediction. <a href="#ref-data">1</a>, <a href="#ref-paper">2</a></p>
 </section>
 <section id="methods" class="level1">
 <h1>Methods</h1>
 <section id="data-acquisition-and-computational-setup" class="level2">
 <h2 class="anchored" data-anchor-id="data-acquisition-and-computational-setup">Data acquisition and computational setup</h2>
 <p>We used Python for the analysis, pandas to organize the records, scikit-learn to partition the data, and Matplotlib to draw the figures. The code downloads the original archive from the University of California, Irvine (UCI) Machine Learning Repository, saves its CSV file in the project’s raw-data directory and reads its semicolon-delimited fields. <a href="#ref-data">1</a></p>
-<div id="31ebcd57" class="cell" data-execution_count="1">
+<div id="2168690a" class="cell" data-execution_count="1">
 <details class="code-fold">
 <summary>Show analysis code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> os</span>
@@ -2334,7 +2334,7 @@ var requirejs,require,define;(function(global,setTimeout){var req,s,head,baseEle
 <span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>    project_root <span class="op">=</span> work_dir</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 </div>
-<div id="95f8d176" class="cell" data-execution_count="2">
+<div id="9245fb5f" class="cell" data-execution_count="2">
 <details class="code-fold">
 <summary>Show analysis code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>url <span class="op">=</span> (<span class="st">&quot;https://archive.ics.uci.edu/static/public/697/&quot;</span></span>
@@ -2356,7 +2356,7 @@ var requirejs,require,define;(function(global,setTimeout){var req,s,head,baseEle
 <section id="training-and-test-split" class="level2">
 <h2 class="anchored" data-anchor-id="training-and-test-split">Training and test split</h2>
 <p>We first split the 4,424 raw records into 80% training and 20% test data, stratifying by outcome so both partitions retain similar class proportions. A fixed random seed reproduces the split. We then removed the 12 semester-performance columns from both partitions and trimmed whitespace from the column names. This left 24 candidate predictors and the target. We saved the processed partitions separately. All exploratory comparisons below use the training partition.</p>
-<div id="7944dccf" class="cell" data-execution_count="3">
+<div id="85a56164" class="cell" data-execution_count="3">
 <details class="code-fold">
 <summary>Show analysis code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>train, test <span class="op">=</span> train_test_split(</span>
@@ -2383,7 +2383,7 @@ var requirejs,require,define;(function(global,setTimeout){var req,s,head,baseEle
 <section id="exploratory-analysis" class="level2">
 <h2 class="anchored" data-anchor-id="exploratory-analysis">Exploratory analysis</h2>
 <p>We counted outcomes, checked missing values and duplicate records, and used the source dictionary to interpret numeric category codes. For age and admission grade, we compared medians and the middle 50% of students within each outcome. For application route, program and financial status, we calculated percentages within each subgroup and reported its size. This matters because program enrollments range from eight to several hundred training students. We used these comparisons to propose features for classification. <a href="#ref-data">1</a></p>
-<div id="e6c1a373" class="cell" data-execution_count="4">
+<div id="73f695e1" class="cell" data-execution_count="4">
 <details class="code-fold">
 <summary>Show analysis code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>eda <span class="op">=</span> train</span>
@@ -2404,7 +2404,7 @@ var requirejs,require,define;(function(global,setTimeout){var req,s,head,baseEle
 <h3 class="anchored" data-anchor-id="predictor-selection-and-preprocessing">Predictor selection and preprocessing</h3>
 <p>We selected five predictors based on enrollment timing and the comparisons in the training data. Program and application route capture differences in how students enter higher education. Age and admission grade allow the model to examine differences among students who enter through the same route. We also included the scholarship indicator, assuming it reflects the student’s status at enrollment. We excluded debt and fee status because the dates of those records are uncertain.</p>
 <p>For logistic regression, we use a separate indicator for each program and application route because their numeric codes identify categories. We standardize age and admission grade so their different units do not determine the strength of regularization. Scholarship status already uses a binary indicator. The preprocessor is defined here for use inside the model pipeline, where it can learn categories, means, and standard deviations using only the training portion of each cross-validation fold. <a href="#ref-validation">3</a></p>
-<div id="aba4af12" class="cell" data-execution_count="5">
+<div id="959d6727" class="cell" data-execution_count="5">
 <details class="code-fold">
 <summary>Show analysis code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>categorical_features <span class="op">=</span> [<span class="st">&quot;Course&quot;</span>, <span class="st">&quot;Application mode&quot;</span>]</span>
@@ -2430,7 +2430,7 @@ var requirejs,require,define;(function(global,setTimeout){var req,s,head,baseEle
 <section id="what-information-is-available-for-exploration" class="level3">
 <h3 class="anchored" data-anchor-id="what-information-is-available-for-exploration">What information is available for exploration?</h3>
 <p><strong>Table 1. Size and completeness of the training data. The last two rows count explicit “unknown” codes in the source data dictionary.</strong></p>
-<div id="1d4c6d0c" class="cell" data-execution_count="6">
+<div id="8d3b73cc" class="cell" data-execution_count="6">
 <details class="code-fold">
 <summary>Show analysis code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>profile <span class="op">=</span> pd.DataFrame({</span>
@@ -2660,7 +2660,7 @@ Figure 4: Percentage of students in each outcome within each program. Each row 
 <section id="which-financial-differences-are-large-enough-to-investigate-and-when-were-they-observable" class="level3">
 <h3 class="anchored" data-anchor-id="which-financial-differences-are-large-enough-to-investigate-and-when-were-they-observable">Which financial differences are large enough to investigate, and when were they observable?</h3>
 <p><strong>Table 2. Academic outcomes within each recorded financial status. Each pair of rows describes the full training set. Percentages across a row may differ slightly from 100 because of rounding.</strong></p>
-<div id="66dd2eae" class="cell" data-execution_count="11">
+<div id="b80d79f3" class="cell" data-execution_count="11">
 <details class="code-fold">
 <summary>Show analysis code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>financial_tables <span class="op">=</span> []</span>
@@ -2765,7 +2765,7 @@ Figure 4: Percentage of students in each outcome within each program. Each row 
 <section id="references" class="level1">
 <h1>References</h1>
 <ol type="1">
-<li><span id="ref-data">Realinho, V., Vieira Martins, M., Machado, J., and Baptista, L. (2021). <em>Predict Students’ Dropout and Academic Success</em>. UCI Machine Learning Repository.</span> <a href="https://doi.org/10.24432/C5MC89">Dataset and variable definitions</a></li>
+<li><span id="ref-data">Realinho, V., Vieira Martins, M., Machado, J., and Baptista, L. (2021). <em>Predict Students’ Dropout and Academic Success</em> (dataset). UCI Machine Learning Repository.</span> <a href="https://doi.org/10.24432/C5MC89">DOI 10.24432/C5MC89</a>. <a href="https://creativecommons.org/licenses/by/4.0/">Dataset license (CC BY 4.0)</a>.</li>
 <li><span id="ref-paper">Realinho, V., Machado, J., Baptista, L., and Martins, M. V. (2022). <em>Predicting Student Dropout and Academic Success</em>. Data, 7(11), 146.</span> <a href="https://doi.org/10.3390/data7110146">Dataset paper</a></li>
 <li><span id="ref-validation">Scikit-learn developers. <em>Cross-validation</em>.</span> <a href="https://scikit-learn.org/stable/modules/cross_validation.html">User guide</a></li>
 <li><span id="ref-f1">Scikit-learn developers. <em>F1 score</em>.</span> <a href="https://scikit-learn.org/stable/modules/generated/sklearn.metrics.f1_score.html">Metric definition and averaging options</a></li>

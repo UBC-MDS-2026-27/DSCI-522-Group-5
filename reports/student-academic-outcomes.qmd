@@ -28,7 +28,7 @@ An academic adviser meets a new student before the student has taken a course or
 
 **Using information available at enrollment, how well can we predict whether a student will have dropped out, still be enrolled, or have graduated by the end of their program’s normal duration?**
 
-We use the public *Predict Students’ Dropout and Academic Success* dataset. Each row represents one undergraduate student at the Polytechnic Institute of Portalegre in Portugal. Students are observed across 17 programs. The target is their recorded academic status at the end of the program’s normal duration. A student labeled *Enrolled* was still studying at that cutoff and could graduate later. The source also contains academic performance recorded at the end of each of the first two semesters. This distinction between entry information and later observations determines which variables are eligible for an enrollment-time prediction. [1](#ref-data), [2](#ref-paper)
+We use the public *Predict Students’ Dropout and Academic Success* dataset. Each of the 4,424 rows represents one undergraduate student at the Polytechnic Institute of Portalegre in Portugal, across 17 programs. The source records 36 predictors covering prior education, demographics, socioeconomic conditions and academic performance. The target is their recorded academic status at the end of the program’s normal duration. A student labeled *Enrolled* was still studying at that cutoff and could graduate later. The source also contains academic performance recorded at the end of each of the first two semesters. This distinction between entry information and later observations determines which variables are eligible for an enrollment-time prediction. [1](#ref-data), [2](#ref-paper)
 
 # Methods
 
@@ -333,7 +333,7 @@ The training data suggest that program, application route, and age at enrollment
 
 # References
 
-1. [Realinho, V., Vieira Martins, M., Machado, J., and Baptista, L. (2021). *Predict Students’ Dropout and Academic Success*. UCI Machine Learning Repository.]{#ref-data} [Dataset and variable definitions](https://doi.org/10.24432/C5MC89)
+1. [Realinho, V., Vieira Martins, M., Machado, J., and Baptista, L. (2021). *Predict Students’ Dropout and Academic Success* (dataset). UCI Machine Learning Repository.]{#ref-data} [DOI 10.24432/C5MC89](https://doi.org/10.24432/C5MC89). [Dataset license (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/).
 2. [Realinho, V., Machado, J., Baptista, L., and Martins, M. V. (2022). *Predicting Student Dropout and Academic Success*. Data, 7(11), 146.]{#ref-paper} [Dataset paper](https://doi.org/10.3390/data7110146)
 3. [Scikit-learn developers. *Cross-validation*.]{#ref-validation} [User guide](https://scikit-learn.org/stable/modules/cross_validation.html)
 4. [Scikit-learn developers. *F1 score*.]{#ref-f1} [Metric definition and averaging options](https://scikit-learn.org/stable/modules/generated/sklearn.metrics.f1_score.html)
