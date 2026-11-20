@@ -20,6 +20,7 @@ format:
 ---
 
 # Summary
+
 How well can information available at enrollment predict dropout, continued enrollment and graduation? We study 4,424 students at a Portuguese higher education institution and reserve 885 for evaluation. Among the 3,539 training students, the dropout and still-enrolled groups had the same median admission grade, yet programs with similar dropout shares differed in how many students were still studying at the cutoff.
 
 # Introduction
@@ -48,8 +49,12 @@ from matplotlib.ticker import PercentFormatter
 import pandas as pd
 from IPython.display import HTML, display
 from sklearn.compose import ColumnTransformer
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, StratifiedKFold, cross_validate, GridSearchCV
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.dummy import DummyClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.pipeline import make_pipeline
+from sklearn.metrics import f1_score, ConfusionMatrixDisplay
 
 work_dir = Path.cwd()
 project_env = os.environ.get("QUARTO_PROJECT_DIR")
@@ -143,6 +148,7 @@ preprocessor = ColumnTransformer([
 ```
 
 # Exploratory findings
+
 ### What information is available for exploration?
 
 **Table 1. Size and completeness of the training data. The last two rows count explicit “unknown” codes in the source data dictionary.**
@@ -325,7 +331,42 @@ For the adviser, the decisive question is **when the status was recorded**. A ba
 The training data suggest that program, application route, and age at enrollment are worth examining together. Students with different outcomes often had similar admission grades, so the value of grade alongside those other predictors remains a question for model validation. Financial status also varied across outcomes, but its use for prediction depends on confirming what was recorded by enrollment.
 
 # Results
+
 ## Classifier selection and cross-validation
+
+```{python}
+# define cv
+cv = 5
+
+# helper function for cross validation
+def mean_std_cross_val_scores(model, X, y, **kwargs):
+  scores = pd.DataFrame(cross_validate(model, X, y, **kwargs))
+  summary = pd.concat([
+    scores.mean().add_suffix("_mean"),
+    scores.std().add_suffix("_std")
+  ])
+  return summary
+
+# chosen models, baseline and lr
+models = {
+  "Baseline (most frequent class)" : DummyClassifier(strategy = 'most_frequent'),
+  "Logistic Regression (default param)" : LogisticRegression(max_iter = 1000)
+}
+
+# define and build results using preprocessor and helper function
+results_dict = {}
+for name, model in models.items():
+  pipe = make_pipeline(preprocessor, model)
+  results_dict[name] = mean_std_cross_val_scores(
+    pipe, X_train, y_train, cv = cv)
+    
+results_df = pd.DataFrame(results_dict).round(4)
+```
+
+Hyper parameter Tuning
+
+```{}
+```
 
 ## Held-out test performance
 
@@ -333,9 +374,7 @@ The training data suggest that program, application route, and age at enrollment
 
 # References
 
-1. [Realinho, V., Vieira Martins, M., Machado, J., and Baptista, L. (2021). *Predict Students’ Dropout and Academic Success* (dataset). UCI Machine Learning Repository.]{#ref-data} [DOI 10.24432/C5MC89](https://doi.org/10.24432/C5MC89). [Dataset license (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/).
-2. [Realinho, V., Machado, J., Baptista, L., and Martins, M. V. (2022). *Predicting Student Dropout and Academic Success*. Data, 7(11), 146.]{#ref-paper} [Dataset paper](https://doi.org/10.3390/data7110146)
-3. [Scikit-learn developers. *Cross-validation*.]{#ref-validation} [User guide](https://scikit-learn.org/stable/modules/cross_validation.html)
-4. [Scikit-learn developers. *F1 score*.]{#ref-f1} [Metric definition and averaging options](https://scikit-learn.org/stable/modules/generated/sklearn.metrics.f1_score.html)
-
-
+1.  [Realinho, V., Vieira Martins, M., Machado, J., and Baptista, L. (2021). *Predict Students’ Dropout and Academic Success* (dataset). UCI Machine Learning Repository.]{#ref-data} [DOI 10.24432/C5MC89](https://doi.org/10.24432/C5MC89). [Dataset license (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/).
+2.  [Realinho, V., Machado, J., Baptista, L., and Martins, M. V. (2022). *Predicting Student Dropout and Academic Success*. Data, 7(11), 146.]{#ref-paper} [Dataset paper](https://doi.org/10.3390/data7110146)
+3.  [Scikit-learn developers. *Cross-validation*.]{#ref-validation} [User guide](https://scikit-learn.org/stable/modules/cross_validation.html)
+4.  [Scikit-learn developers. *F1 score*.]{#ref-f1} [Metric definition and averaging options](https://scikit-learn.org/stable/modules/generated/sklearn.metrics.f1_score.html)
