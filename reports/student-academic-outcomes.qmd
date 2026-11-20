@@ -6,6 +6,16 @@ author:
   - "Ganiyat Adekunle"
   - "Rupesh Patel"
 jupyter: python3
+execute:
+  echo: true
+format:
+  html:
+    embed-resources: true
+    code-fold: true
+    code-summary: "Show analysis code"
+    toc: true
+    toc-title: "In this analysis"
+    theme: cosmo
 ---
 
 # Summary
@@ -68,6 +78,143 @@ test.to_csv(processed_dir / "test.csv", index=False)
 ```
 
 ## EDA
+
+```{python}
+from pathlib import Path
+import matplotlib.pyplot as plt
+from matplotlib.ticker import PercentFormatter
+import pandas as pd
+from IPython.display import HTML, display
+
+# A standalone render works from the project root or its analysis subfolder.
+relative_path = Path("data/processed/train.csv")
+candidates = [relative_path, Path("..") / relative_path]
+train_path = next((path for path in candidates if path.is_file()), None)
+if train_path is None:
+    raise FileNotFoundError("Expected data/processed/train.csv under the project root. Run the data-splitting step first.")
+eda = pd.read_csv(train_path).rename(columns=str.strip)
+classes = ["Dropout", "Enrolled", "Graduate"]
+colors = ["#AD4824", "#49658D", "#167361"]
+
+def outcome_mix(groups, outcomes):
+    counts = pd.crosstab(groups, outcomes).reindex(columns=classes, fill_value=0)
+    sizes = counts.sum(axis=1)
+    percentages = counts.div(sizes, axis=0).mul(100)
+    return percentages.assign(Students=sizes)
+
+```
+What information is available for exploration?
+
+### Table 1. Size and completeness of the training data. The last two rows count explicit “unknown” codes in the source data dictionary [1].
+
+```{python}
+profile = pd.DataFrame({
+    "Training-data check": [
+        "Student records", "Candidate predictors", "Empty cells", "Exact duplicate rows",
+        "Unknown maternal qualification", "Unknown paternal qualification",
+    ],
+    "Count": [
+        len(eda), eda.drop(columns="Target").shape[1], eda.isna().sum().sum(),
+        eda.duplicated().sum(), eda["Mother's qualification"].eq(34).sum(),
+        eda["Father's qualification"].eq(34).sum(),
+    ],
+})
+display(HTML(profile.to_html(index=False, formatters={"Count": "{:,}".format})))
+```
+
+Table 1 shows why a simple missing-value check tells only part of the story. All cells have a recorded value, yet for 101 students the value for maternal qualification explicitly means “unknown.” We retain this category. We also read program and application route codes as names of categories, since the distance between two codes has no academic interpretation.
+
+### Results
+
+### How common was each academic outcome?
+
+```{python}
+#| label: fig-outcomes
+#| fig-cap: "Academic status at the end of the normal program duration. Each bar gives the percentage and number of students out of 3,539."
+#| fig-alt: "Of the training students, 32.1 percent dropped out, 17.9 percent remained enrolled, and 49.9 percent graduated."
+counts = eda["Target"].value_counts().reindex(classes)
+shares = 100 * counts / counts.sum()
+fig, ax = plt.subplots(figsize=(8.2, 2.8), layout="constrained")
+ax.barh(classes, shares, color=colors, height=0.58)
+for pos, (share, count) in enumerate(zip(shares, counts)):
+    ax.text(share + 1, pos, f"{share:.1f}%  ({count:,})", va="center")
+ax.invert_yaxis()
+ax.set_xlim(0, 64)
+ax.set_xticks([0, 10, 20, 30, 40, 50, 60])
+ax.xaxis.set_major_formatter(PercentFormatter(100, decimals=0))
+ax.set_xlabel("Share of all training students")
+ax.spines[["top", "right", "left"]].set_visible(False)
+ax.tick_params(axis="y", length=0)
+plt.show()
+```
+
+In @fig-outcomes, 1,767 students graduated, 1,137 dropped out and 635 were still enrolled. Always predicting graduation would get 49.9% of the training records right while missing every student who dropped out or remained enrolled. The question for the adviser is whether anything visible on enrollment day helps distinguish these groups. Admission grade and age are two natural places to start.
+
+###Do admission grades or ages differ across the three outcomes?
+```{python}
+#| label: fig-entry
+#| fig-cap: "Age and admission grade by outcome. Dots mark medians and thick lines span the middle 50% of students. Each panel has its own units."
+#| fig-alt: "Median entry ages range from 19 to 23 across outcomes. Median admission grades cluster near 125, with substantial overlap in the middle halves."
+fig, axes = plt.subplots(1, 2, figsize=(8.2, 3.0), layout="constrained")
+for ax, measure, label in zip(
+    axes,
+    ["Age at enrollment", "Admission grade"],
+    ["Age at enrollment (years)", "Admission grade (points out of 200)"],
+):
+    stats = eda.groupby("Target")[measure].quantile([0.25, 0.5, 0.75]).unstack().loc[classes]
+    for position, (outcome, row) in enumerate(stats.iterrows()):
+        ax.plot([row[0.25], row[0.75]], [position, position], lw=7,
+                color=colors[position], solid_capstyle="round", alpha=0.6)
+        ax.scatter(row[0.5], position, color=colors[position], s=65,
+                   edgecolor="white", linewidth=1, zorder=3)
+    ax.set_yticks(range(3), classes)
+    ax.set_ylim(2.5, -0.5)
+    ax.set_xlabel(label)
+    ax.grid(axis="x", alpha=0.2)
+    ax.spines[["top", "right", "left"]].set_visible(False)
+plt.show()
+```
+
+The dropout and still-enrolled groups had the same median admission grade, 124.2 out of 200 (@fig-entry). Even the graduate median of 127.3 sits inside the middle half of the dropout group, which spans 115.2 to 133.8. A grade near 125 would therefore give the adviser little basis, on its own, for distinguishing these outcomes.
+
+Age shows a clearer difference. The median entry ages were 23, 20 and 19 years for students who dropped out, remained enrolled and graduated, respectively. The middle half of the dropout group spanned ages 19 to 30, compared with 18 to 21 for graduates. This wider spread raises an important follow-up. One application route is specifically for applicants over 23, so its dropout share may partly reflect whom it admits.
+
+###How does the difference between application routes change among older entrants?
+```{python}
+#| label: fig-route
+#| fig-cap: "Dropout share within each application route, first across all ages and then among students aged 24 or older. Parentheses give the size of each group. The second comparison uses a subset of the first."
+#| fig-alt: "The over-23 route has 56.1 percent dropout in both comparisons. Other routes have 26.9 percent across all ages and 52.0 percent at ages 24 and older."
+route_rows = []
+for population, frame in [("All ages", eda), ("Age 24 and older", eda.loc[eda["Age at enrollment"] >= 24])]:
+    is_over_23_route = frame["Application mode"].eq(39)
+    for label, mask in [("Over-23 route", is_over_23_route), ("Other routes", ~is_over_23_route)]:
+        outcomes = frame.loc[mask, "Target"]
+        dropouts = outcomes.eq("Dropout").sum()
+        route_rows.append([population, label, len(outcomes), dropouts, round(100 * dropouts / len(outcomes), 1)])
+
+routes = pd.DataFrame(route_rows, columns=["Population", "Route", "Students", "Dropouts", "Share"])
+fig, ax = plt.subplots(figsize=(8.2, 3.4), layout="constrained")
+for offset, name, color in [(-0.18, "Over-23 route", "#325563"), (0.18, "Other routes", "#8495AA")]:
+    group = routes[routes["Route"] == name]
+    positions = [i + offset for i in range(len(group))]
+    ax.barh(positions, group["Share"], height=0.30, color=color, label=name)
+    for y, row in zip(positions, group.itertuples()):
+        ax.text(row.Share + 0.9, y, f"{row.Share:.1f}%  ({row.Students:,})", va="center", fontsize=10)
+ax.set_yticks([0, 1], ["All ages", "Age 24 and older"])
+ax.invert_yaxis()
+ax.set_xlim(0, 73)
+ax.set_xticks([0, 10, 20, 30, 40, 50, 60])
+ax.xaxis.set_major_formatter(PercentFormatter(100, decimals=0))
+ax.set_xlabel("Share who dropped out within each group")
+ax.legend(loc="lower left", bbox_to_anchor=(0, 1), frameon=False, ncol=2)
+ax.spines[["top", "right", "left"]].set_visible(False)
+ax.tick_params(axis="y", length=0)
+plt.show()
+```
+
+Across all ages, 56.1% of students entering through the over-23 route dropped out, compared with 26.9% through other routes (@fig-route). But those two groups draw from different age ranges. All 631 students on the over-23 route were at least 24. When we apply the same age restriction to other routes, 375 students remain and their dropout share rises to 52.0%.
+
+The observed gap falls from 29.2 to 4.1 percentage points. That gives us a reason to test age and route together. It does not establish an independent effect for either variable, since exact age, program and other characteristics can still differ. Looking at program next also brings the students still enrolled back into view.
 
 ## Model and evaluation
 
