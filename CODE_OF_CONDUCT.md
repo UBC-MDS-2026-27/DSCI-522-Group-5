@@ -46,3 +46,12 @@ The designated contact will acknowledge the report, review the available informa
 Responses will depend on the seriousness and frequency of the behaviour.They may include requesting a change in behaviour, issuing a warning, moderating inappropriate content, or referring the matter to the instructor and TA. Any restrictions affecting assessed course participation will be coordinated with the teaching team.
 
 Anyone involved in a complaint will not be responsible for deciding how that complaint is handled.
+
+## Acknowledgments
+
+This code of conduct to inspiration from the
+[Python Community Code of Conduct](https://www.python.org/psf/conduct/)
+and the
+[Tidyverse Code of Conduct](https://github.com/tidyverse/tidyverse.org/blob/master/CODE_OF_CONDUCT.md).
+
+However this specific code has been tailored to our project, with reporting contacts updated to reach our team.
