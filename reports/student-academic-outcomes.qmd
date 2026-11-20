@@ -23,24 +23,46 @@ format:
 
 # Introduction
 
+An academic adviser meets a new student before the student has taken a course or earned a semester grade. At that point, the institution already knows the program the student entered, how they applied and their admission grade. If these details help distinguish later academic outcomes, they could inform which students are offered an early conversation about support. A missed dropout could mean a missed opportunity for outreach. Equally, a student who needs longer to finish could be misidentified as having left.
+
+**Using information available at enrollment, how well can we predict whether a student will have dropped out, still be enrolled, or have graduated by the end of their program’s normal duration?**
+
+We use the public *Predict Students’ Dropout and Academic Success* dataset. Each row represents one undergraduate student at the Polytechnic Institute of Portalegre in Portugal. Students are observed across 17 programs. The target is their recorded academic status at the end of the program’s normal duration. A student labeled *Enrolled* was still studying at that cutoff and could graduate later. The source also contains academic performance recorded at the end of each of the first two semesters. This distinction between entry information and later observations determines which variables are eligible for an enrollment-time prediction. [1](#ref-data), [2](#ref-paper)
+
 # Methods
 
-## Computational setup
+## Data acquisition and computational setup
 
-## Data acquisition
+We used Python for the analysis, pandas to organize the records, scikit-learn to partition the data, and Matplotlib to draw the figures. The code downloads the original archive from the University of California, Irvine (UCI) Machine Learning Repository, saves its CSV file in the project’s raw-data directory and reads its semicolon-delimited fields. [1](#ref-data)
+
 ```{python}
+import os
 from io import BytesIO
 from pathlib import Path
 from urllib.request import urlopen
 from zipfile import ZipFile
 
+import matplotlib.pyplot as plt
+from matplotlib.ticker import PercentFormatter
 import pandas as pd
+from IPython.display import HTML, display
+from sklearn.model_selection import train_test_split
 
-url = (
-    "https://archive.ics.uci.edu/static/public/697/"
+work_dir = Path.cwd()
+project_env = os.environ.get("QUARTO_PROJECT_DIR")
+if project_env:
+    project_root = Path(project_env).resolve()
+elif work_dir.name in {"reports", "analysis", "src"}:
+    project_root = work_dir.parent
+else:
+    project_root = work_dir
+```
+
+```{python}
+url = ("https://archive.ics.uci.edu/static/public/697/"
     "predict+students+dropout+and+academic+success.zip"
 )
-raw_path = Path("data/raw/data.csv")
+raw_path = project_root / "data" / "raw" / "data.csv"
 raw_path.parent.mkdir(parents=True, exist_ok=True)
 
 with urlopen(url, timeout=30) as response:
@@ -52,11 +74,12 @@ with ZipFile(archive) as dataset_zip:
 students = pd.read_csv(raw_path, sep=";")
 ```
 
-
 ## Training and test split
-```{python}
-from sklearn.model_selection import train_test_split
+## Training and test split
 
+We first split the 4,424 raw records into 80% training and 20% test data, stratifying by outcome so both partitions retain similar class proportions. A fixed random seed reproduces the split. We then removed the 12 semester-performance columns from both partitions and trimmed whitespace from the column names. This left 24 candidate predictors and the target. We saved the processed partitions separately. All exploratory comparisons below use the training partition.
+
+```{python}
 train, test = train_test_split(
     students,
     test_size=0.20,
@@ -70,29 +93,19 @@ semester_columns = train.columns[
 train = train.drop(columns=semester_columns).rename(columns=str.strip)
 test = test.drop(columns=semester_columns).rename(columns=str.strip)
 
-processed_dir = Path("../data/processed")
+processed_dir = project_root / "data" / "processed"
 processed_dir.mkdir(parents=True, exist_ok=True)
 
 train.to_csv(processed_dir / "train.csv", index=False)
 test.to_csv(processed_dir / "test.csv", index=False)
 ```
 
-## EDA
+## Exploratory analysis
+
+We counted outcomes, checked missing values and duplicate records, and used the source dictionary to interpret numeric category codes. For age and admission grade, we compared medians and the middle 50% of students within each outcome. For application route, program and financial status, we calculated percentages within each subgroup and reported its size. This matters because program enrollments range from eight to several hundred training students. We used these comparisons to propose features for classification. [1](#ref-data)
 
 ```{python}
-from pathlib import Path
-import matplotlib.pyplot as plt
-from matplotlib.ticker import PercentFormatter
-import pandas as pd
-from IPython.display import HTML, display
-
-# A standalone render works from the project root or its analysis subfolder.
-relative_path = Path("data/processed/train.csv")
-candidates = [relative_path, Path("..") / relative_path]
-train_path = next((path for path in candidates if path.is_file()), None)
-if train_path is None:
-    raise FileNotFoundError("Expected data/processed/train.csv under the project root. Run the data-splitting step first.")
-eda = pd.read_csv(train_path).rename(columns=str.strip)
+eda = train
 classes = ["Dropout", "Enrolled", "Graduate"]
 colors = ["#AD4824", "#49658D", "#167361"]
 
@@ -101,11 +114,11 @@ def outcome_mix(groups, outcomes):
     sizes = counts.sum(axis=1)
     percentages = counts.div(sizes, axis=0).mul(100)
     return percentages.assign(Students=sizes)
-
 ```
-What information is available for exploration?
 
-### Table 1. Size and completeness of the training data. The last two rows count explicit “unknown” codes in the source data dictionary [1].
+### What information is available for exploration?
+
+**Table 1. Size and completeness of the training data. The last two rows count explicit “unknown” codes in the source data dictionary.**
 
 ```{python}
 profile = pd.DataFrame({
@@ -123,8 +136,6 @@ display(HTML(profile.to_html(index=False, formatters={"Count": "{:,}".format})))
 ```
 
 Table 1 shows why a simple missing-value check tells only part of the story. All cells have a recorded value, yet for 101 students the value for maternal qualification explicitly means “unknown.” We retain this category. We also read program and application route codes as names of categories, since the distance between two codes has no academic interpretation.
-
-### Results
 
 ### How common was each academic outcome?
 
@@ -148,12 +159,13 @@ ax.tick_params(axis="y", length=0)
 plt.show()
 ```
 
-In @fig-outcomes, 1,767 students graduated, 1,137 dropped out and 635 were still enrolled. Always predicting graduation would get 49.9% of the training records right while missing every student who dropped out or remained enrolled. The question for the adviser is whether anything visible on enrollment day helps distinguish these groups. Admission grade and age are two natural places to start.
+In @fig-outcomes, 1,767 students graduated, 1,137 dropped out and 635 were still enrolled. Always predicting graduation would get 49.9% of the training records right while missing every student who dropped out or remained enrolled. An adviser therefore needs information that helps distinguish all three groups. Admission grade and age are two natural places to start.
 
-###Do admission grades or ages differ across the three outcomes?
+### Do admission grades or ages differ across the three outcomes?
+
 ```{python}
 #| label: fig-entry
-#| fig-cap: "Age and admission grade by outcome. Dots mark medians and thick lines span the middle 50% of students. Each panel has its own units."
+#| fig-cap: "Age and admission grade by outcome. Dots mark medians and thick lines span the middle 50% of students. The colors follow the labeled rows in each panel, with orange for dropout, blue for continued enrollment and green for graduation."
 #| fig-alt: "Median entry ages range from 19 to 23 across outcomes. Median admission grades cluster near 125, with substantial overlap in the middle halves."
 fig, axes = plt.subplots(1, 2, figsize=(8.2, 3.0), layout="constrained")
 for ax, measure, label in zip(
@@ -175,11 +187,12 @@ for ax, measure, label in zip(
 plt.show()
 ```
 
-The dropout and still-enrolled groups had the same median admission grade, 124.2 out of 200 (@fig-entry). Even the graduate median of 127.3 sits inside the middle half of the dropout group, which spans 115.2 to 133.8. A grade near 125 would therefore give the adviser little basis, on its own, for distinguishing these outcomes.
+The dropout and still-enrolled groups had the same median admission grade, **124.2 out of 200** (@fig-entry). Even the graduate median of 127.3 sits inside the middle half of the dropout group, which spans 115.2 to 133.8. A grade near 125 would therefore give the adviser little basis, on its own, for distinguishing these outcomes.
 
 Age shows a clearer difference. The median entry ages were 23, 20 and 19 years for students who dropped out, remained enrolled and graduated, respectively. The middle half of the dropout group spanned ages 19 to 30, compared with 18 to 21 for graduates. This wider spread raises an important follow-up. One application route is specifically for applicants over 23, so its dropout share may partly reflect whom it admits.
 
-###How does the difference between application routes change among older entrants?
+### How does the difference between application routes change among older entrants?
+
 ```{python}
 #| label: fig-route
 #| fig-cap: "Dropout share within each application route, first across all ages and then among students aged 24 or older. Parentheses give the size of each group. The second comparison uses a subset of the first."
@@ -214,7 +227,73 @@ plt.show()
 
 Across all ages, 56.1% of students entering through the over-23 route dropped out, compared with 26.9% through other routes (@fig-route). But those two groups draw from different age ranges. All 631 students on the over-23 route were at least 24. When we apply the same age restriction to other routes, 375 students remain and their dropout share rises to 52.0%.
 
-The observed gap falls from 29.2 to 4.1 percentage points. That gives us a reason to test age and route together. It does not establish an independent effect for either variable, since exact age, program and other characteristics can still differ. Looking at program next also brings the students still enrolled back into view.
+The observed gap falls from **29.2 to 4.1 percentage points**. That gives us a reason to test age and route together. Even within this age range, students can differ in exact age, program and other circumstances. Looking at program next also brings the students still enrolled back into view.
+
+### What can two programs with similar dropout shares tell us about continued enrollment?
+
+```{python}
+#| label: fig-programs
+#| fig-cap: "Percentage of students in each outcome within each program. Each row represents 100% of a program’s training students. Labels give the group size. Displayed percentages are rounded."
+#| fig-alt: "Outcome shares for all 17 programs, largest first. Nursing has a large graduate share. Informatics Engineering and Evening Management have similar dropout shares but different continued enrollment shares."
+program_names = {
+    33: "Biofuel Production Technologies", 171: "Animation and Multimedia Design",
+    8014: "Social Service (evening)", 9003: "Agronomy", 9070: "Communication Design",
+    9085: "Veterinary Nursing", 9119: "Informatics Engineering", 9130: "Equine studies",
+    9147: "Management", 9238: "Social Service", 9254: "Tourism", 9500: "Nursing",
+    9556: "Oral Hygiene", 9670: "Advertising and Marketing Management",
+    9773: "Journalism and Communication", 9853: "Basic Education", 9991: "Management (evening)",
+}
+programs = outcome_mix(eda["Course"].map(program_names), eda["Target"]).sort_values("Students", ascending=False)
+fig, ax = plt.subplots(figsize=(9.7, 7.7), layout="constrained")
+labels = [f"{name}  ({int(n):,})" for name, n in programs["Students"].items()]
+left = pd.Series(0.0, index=programs.index)
+for outcome, color in zip(classes, colors):
+    widths = programs[outcome]
+    ax.barh(labels, widths, left=left, color=color, label=outcome, height=0.72)
+    for y, (start, width) in enumerate(zip(left, widths)):
+        if width >= 6:
+            ax.text(start + width / 2, y, f"{width:.0f}", ha="center", va="center", color="white", fontsize=9)
+    left = left + widths
+ax.set_xlim(0, 100)
+ax.invert_yaxis()
+ax.xaxis.set_major_formatter(PercentFormatter(100))
+ax.set_xlabel("Share of students in each program")
+ax.legend(loc="lower center", bbox_to_anchor=(0.5, 1), ncol=3, frameon=False)
+ax.tick_params(axis="y", length=0, labelsize=9)
+ax.spines[["top", "right", "left"]].set_visible(False)
+plt.show()
+```
+
+Evening Management and Informatics Engineering look almost identical if we compare only dropout, at **53.8% and 53.2%** (@fig-programs). The difference emerges when we ask where the rest of their students were at the cutoff. In Informatics Engineering, 36.9% were still enrolled and 9.9% had graduated. In Evening Management, 21.0% were still enrolled and 25.2% had graduated. That distinction is precisely what the three-class prediction question preserves.
+
+Nursing provides a useful reference, with 71.4% of 622 students graduating. At the other end of the figure, Biofuel Production Technologies has only eight training students. One student accounts for 12.5 percentage points there. Program is worth testing, but the smallest groups provide little evidence for a precise program-specific prediction. Program is recorded at entry. Financial records raise a different question about what was known at that point.
+
+### Which financial differences are large enough to investigate, and when were they observable?
+
+**Table 2. Academic outcomes within each recorded financial status. Each pair of rows describes the full training set. Percentages across a row may differ slightly from 100 because of rounding.**
+
+```{python}
+financial_tables = []
+for column, labels in [
+    ("Tuition fees up to date", {0: "Fees outstanding", 1: "Fees current"}),
+    ("Debtor", {0: "No recorded debt", 1: "Recorded debt"}),
+    ("Scholarship holder", {0: "No scholarship", 1: "Scholarship holder"}),
+]:
+    mix = outcome_mix(eda[column], eda["Target"]).rename(index=labels)
+    financial_tables.append(mix)
+financial = pd.concat(financial_tables)[["Students", *classes]].round(1)
+
+financial.index.name = "Recorded status"
+financial = financial.reset_index().rename(columns={
+    "Dropout": "Dropped out (%)", "Enrolled": "Still enrolled (%)", "Graduate": "Graduated (%)"
+})
+display(HTML(financial.to_html(index=False, float_format=lambda x: f"{x:.1f}",
+                               formatters={"Students": "{:,}".format})))
+```
+
+Table 2 shows that 88.2% of students with outstanding fees dropped out, compared with 24.7% of those whose fees were current. Reading across the scholarship rows reveals a different pattern. Graduation was recorded for 75.5% of scholarship holders and 41.4% of students without a scholarship. These comparisons describe associations. They cannot tell us whether paying fees or receiving a scholarship would change an individual student’s outcome.
+
+For the adviser, the decisive question is **when the status was recorded**. A balance updated after a student left could make past dropout easy to recognize without helping predict it at enrollment. The file supplies no student-level date for these financial records. That is why a large difference can justify investigating a feature while still leaving it out of the initial model.
 
 ## Model and evaluation
 
