@@ -147,6 +147,12 @@ preprocessor = ColumnTransformer([
 ])
 ```
 
+### Classifiers, tuning and evaluation
+
+We selected a logistic regression classifier as our model for this problem as it natively models all three outcomes, has interpretable coefficients, and is less likely to overfit with only five predictors. We chose to compare the performance of the logistic regression classifier with a baseline model which always predicts the most common class, in this case being Graduate. Each of the baseline model and the logistic regression classifier are passed through a pipeline which includes the pre-processing. Then, cross-validation is completed on training data with 5 folds. This allows us to compare a logistic regression classifier with the baseline model without evaluating on the test set, and shows how metrics change between samples of students. We can progress to tuning the model now that we have a baseline model and a default logistic regression classifier cross-validated.
+
+We use F1 to evaluate the models since the classes are unbalanced, and using accuracy alone would be misleading when comparing with the baseline. Macro F1 was used to average the class-specific scores since it gives equal weight to each class. In our problem, the models ability to predict each class is important so using macro F1 is fitting. [4](#ref-f1) The model was tuned using a grid search with 5-fold cross validation since we only had 2 hyper-parameters to tune: C (regularization, 0.001-100), and class weighting. The model with hyper-parameters which optimize the macro F1 score is selected. The test set was held out for the entirety of the model building process, and after the model is finalized, it is refit (during grid search automatically) on all of the training data and evaluated using the test data.
+
 # Exploratory findings
 
 ### What information is available for exploration?
