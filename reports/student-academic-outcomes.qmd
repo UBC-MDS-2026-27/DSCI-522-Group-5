@@ -21,7 +21,7 @@ format:
 
 # Summary
 
-How well can information available at enrollment predict dropout, continued enrollment and graduation? We study 4,424 students at a Portuguese higher education institution and reserve 885 for evaluation. Among the 3,539 training students, the dropout and still-enrolled groups had the same median admission grade, yet programs with similar dropout shares differed in how many students were still studying at the cutoff.
+How well can information available at enrollment predict whether a student will drop out, still be studying, or graduate by the end of their program’s normal duration? We studied 4,424 students at one Portuguese institution. On the 885 students held out for testing, logistic regression with five enrollment predictors scored 0.509 on macro F1, which gives each outcome equal weight. Always predicting graduation scored 0.222. The model identified 145 of the 284 students who dropped out. Using its predictions alone to decide whom to contact would therefore miss nearly half the students an adviser hoped to reach.
 
 # Introduction
 
@@ -498,6 +498,14 @@ plt.show()
 The performance of the tuned model differed by the three student outcomes as shown in Table 6. For students that graduated, the model performed the strongest achieving an F1 score of 0.663. The model performed worse for dropouts and enrolled students with F1 scores of 0.508 and 0.356, respectively. Of the 442 test students that graduated, the model identified 269 of them correctly. Figure 5 shows the confusion matrix which uncovers where the errors were concentrated. Notably, 98 of the 442 test students that graduated were predicted as dropouts and 85 of test students that dropped out were classified as enrolled. The model was able to capture 145 of 284 of the test dropouts, with a recall of 0.511.
 
 # Discussion
+
+The five enrollment predictors helped distinguish later academic outcomes, particularly graduation. Table 6 shows that the model’s test F1 score was highest for graduates (0.663) and lowest for students still enrolled (0.356). The training data give some context for that difference. Students who later dropped out and those still enrolled had the same median admission grade, 124.2 out of 200 (@fig-entry). Informatics Engineering and Evening Management also had similar dropout shares but different shares of students still studying (@fig-programs). We expected program to offer some information and admission grade alone to leave considerable uncertainty. The test results fit that expectation, although this analysis did not isolate the contribution of either predictor.
+
+For an adviser, the two directions of error have different consequences. Of the 284 students who dropped out, the model classified 85 as still enrolled and 54 as graduates (@fig-confusion). All 139 could miss an offer of support if outreach depended on a dropout prediction. In the other direction, 98 students who graduated would have received a dropout flag. The overlap in admission grades offers one plausible reason why future graduates can resemble students who leave. The confusion matrix shows how often this happened, but it cannot tell us why a particular student received that prediction.
+
+The tuned model’s average training and validation macro F1 scores were close (0.529 and 0.522, Table 4), and its held-out score was 0.509. This small gap gives little evidence of severe overfitting within this cohort. The five predictors may carry limited information about events that occur after enrollment, or logistic regression may miss relationships among them. We also assumed scholarship status was known when the student enrolled. An award recorded later would give the model information an adviser did not yet have. All records came from one institution, so performance at another institution remains an open question.
+
+A follow-up could verify scholarship award dates, add prior qualification and its grade, and compare logistic regression with a tree-based model that can capture differences across programs and entry routes. A separate question is how an adviser should use the estimated dropout probabilities. On a later cohort, we could test whether students assigned similar probabilities actually drop out at similar rates. We could then compare how many students an advising team could contact at different thresholds, how many dropouts it would reach, and how many it would miss.
 
 # References
 
