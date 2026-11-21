@@ -20,6 +20,7 @@ format:
 ---
 
 # Summary
+
 How well can information available at enrollment predict dropout, continued enrollment and graduation? We study 4,424 students at a Portuguese higher education institution and reserve 885 for evaluation. Among the 3,539 training students, the dropout and still-enrolled groups had the same median admission grade, yet programs with similar dropout shares differed in how many students were still studying at the cutoff.
 
 # Introduction
@@ -48,8 +49,12 @@ from matplotlib.ticker import PercentFormatter
 import pandas as pd
 from IPython.display import HTML, display
 from sklearn.compose import ColumnTransformer
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, StratifiedKFold, cross_validate, GridSearchCV
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.dummy import DummyClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.pipeline import make_pipeline
+from sklearn.metrics import f1_score, ConfusionMatrixDisplay, accuracy_score, classification_report, precision_score, recall_score
 
 work_dir = Path.cwd()
 project_env = os.environ.get("QUARTO_PROJECT_DIR")
@@ -142,7 +147,14 @@ preprocessor = ColumnTransformer([
 ])
 ```
 
+### Classifiers, tuning and evaluation
+
+We selected a logistic regression classifier as our model for this problem as it natively models all three outcomes, has interpretable coefficients, and is less likely to overfit with only five predictors. We chose to compare the performance of the logistic regression classifier with a baseline model which always predicts the most common class, in this case being Graduate. Each of the baseline model and the logistic regression classifier are passed through a pipeline which includes the pre-processing. Then, cross-validation is completed on training data with 5 folds. This allows us to compare a logistic regression classifier with the baseline model without evaluating on the test set, and shows how metrics change between samples of students. We can progress to tuning the model now that we have a baseline model and a default logistic regression classifier cross-validated.
+
+We use F1 to evaluate the models since the classes are unbalanced, and using accuracy alone would be misleading when comparing with the baseline. Macro F1 was used to average the class-specific scores since it gives equal weight to each class. In our problem, the models ability to predict each class is important so using macro F1 is fitting. [4](#ref-f1) The model was tuned using a grid search with 5-fold cross validation since we only had 2 hyper-parameters to tune: C (regularization, 0.001-100), and class weighting. The model with hyper-parameters which optimize the macro F1 score is selected. The test set was held out for the entirety of the model building process, and after the model is finalized, it is refit (during grid search automatically) on all of the training data and evaluated using the test data.
+
 # Exploratory findings
+
 ### What information is available for exploration?
 
 **Table 1. Size and completeness of the training data. The last two rows count explicit “unknown” codes in the source data dictionary.**
@@ -325,17 +337,171 @@ For the adviser, the decisive question is **when the status was recorded**. A ba
 The training data suggest that program, application route, and age at enrollment are worth examining together. Students with different outcomes often had similar admission grades, so the value of grade alongside those other predictors remains a question for model validation. Financial status also varied across outcomes, but its use for prediction depends on confirming what was recorded by enrollment.
 
 # Results
-## Classifier selection and cross-validation
+
+## Hyper-parameter tuning and cross-validation
+
+We first compared different hyper parameters of C (regularization) and class weight on the logistic regression model. Table 3 shows the mean validation and training macro F1 scores for each combination of settings in the grid search.
+
+**Table 3. Grid search results for Logistic Regression ordered by macro F1 across 5 CV folds.**
+
+```{python}
+# define cv
+cv = 5
+
+# helper function for cross validation
+def mean_std_cross_val_scores(model, X, y, **kwargs):
+  scores = pd.DataFrame(cross_validate(model, X, y, **kwargs))
+  summary = pd.concat([
+    scores.mean().add_suffix("_mean"),
+    scores.std().add_suffix("_std")
+  ])
+  return summary
+
+# chosen models, baseline and lr
+models = {
+  "Baseline (most frequent class)" : DummyClassifier(strategy = 'most_frequent'),
+  "Logistic Regression (default param)" : LogisticRegression(max_iter = 1000)
+}
+
+# define and build results using preprocessor and helper function
+results_dict = {}
+for name, model in models.items():
+  pipe = make_pipeline(preprocessor, model)
+  results_dict[name] = mean_std_cross_val_scores(
+    pipe, X_train, y_train, cv = cv, scoring = "f1_macro", return_train_score = True)
+    
+pipe = make_pipeline(preprocessor, models["Logistic Regression (default param)"])
+
+# define hyperparameter's to try
+param_grid = {
+  'logisticregression__C' : [0.001, 0.01, 0.1, 1, 10, 100],
+  'logisticregression__class_weight' : [None, "balanced"]
+}
+
+# only 2 hyperparameters so gridsearch, define
+search = GridSearchCV(
+  pipe,
+  param_grid,
+  cv = cv,
+  scoring = "f1_macro",
+  return_train_score = True
+)
+
+# fit the gridsearch to the training data
+search.fit(X_train, y_train)
+
+# create a results table, ranked by validation macro F1
+results = pd.DataFrame(search.cv_results_)
+cv_table = results[["rank_test_score", "param_logisticregression__C", 
+"param_logisticregression__class_weight", "mean_test_score",
+"std_test_score", "mean_train_score"]].rename(columns = {
+  "rank_test_score" : "Rank",
+  "param_logisticregression__C" : "C",
+  "param_logisticregression__class_weight" : "Class Weight",
+  "mean_test_score" : "Validation Macro F1",
+  "std_test_score" : "Validation Std",
+  "mean_train_score" : "Train Macro F1"
+}).sort_values("Rank")
+cv_table["Class Weight"] = cv_table["Class Weight"].fillna("none")
+
+cv_table.style.format(precision = 3).hide(axis = "index")
+```
+
+Balanced class weights gave a greater average macro F1 for every value of C than the unweighted models. Scores were similar for all values of C with balanced class weights, except for the greatest regularization of 0.001. A combination of C = 0.01 with balanced class weights gives the best performance, achieving a validation macro F1 score of 0.522.
+
+**Table 4. Cross-validation scores for the baseline and logistic regression models (base and tuned) on training data.**
+
+```{python}
+# add the tuned model to results_dict
+results_dict["Logistic Regression (tuned)"] = mean_std_cross_val_scores(
+  search.best_estimator_, X_train, y_train,
+  cv = cv, scoring = "f1_macro", return_train_score = True
+)
+
+results_df = pd.DataFrame(results_dict).round(4).T[["test_score_mean", "test_score_std", "train_score_mean"]].rename(columns = {
+  "test_score_mean" : "Validation macro F1",
+  "test_score_std" : "Validation Std",
+  "train_score_mean" : "Training macro F1"
+})
+results_df.style.format(precision = 3)
+```
+
+Table 4 compares the performance of the baseline model and the default and tuned logistic regression models. The baseline model, with most frequent class prediction, reached a macro F1 of 0.222. The un-tuned logistic regression model increased this to 0.471. Further tuning of regularization and class balance brought the macro F1 score of the model to 0.522.
 
 ## Held-out test performance
+
+**Table 5. Test performance metrics for the baseline and tuned logistic regression model.**
+
+```{python}
+baseline = models["Baseline (most frequent class)"]
+baseline.fit(X_train, y_train)
+baseline_pred = baseline.predict(X_test)
+lr_pred = search.best_estimator_.predict(X_test)
+
+test_results = pd.DataFrame(
+  {
+    "Accuracy" : [
+      accuracy_score(y_test, baseline_pred),
+      accuracy_score(y_test, lr_pred)
+    ],
+    "Precision" : [
+      precision_score(y_test, baseline_pred, average = "macro", zero_division = 0),
+      precision_score(y_test, lr_pred, average = "macro", zero_division = 0)
+    ],
+    "Recall" : [
+      recall_score(y_test, baseline_pred, average = "macro"),
+      recall_score(y_test, lr_pred, average = "macro")
+    ],
+    "Macro F1" : [
+      f1_score(y_test, baseline_pred, average = "macro"),
+      f1_score(y_test, lr_pred, average = "macro")
+    ]
+  },
+  index = ["Baseline (most frequent)", "Logistic Regression (tuned)"]
+)
+
+test_results.style.format(precision = 3)
+```
+
+Running the tuned model on the test data resulted in a macro F1 of 0.509, while the baseline model was 0.222 in Table 5. This result is close to the validation result of 0.522. The accuracy for the baseline model is 0.499 where the tuned logistic regression model achieved 0.546.
+
+**Table 6. Test metrics for the tuned logistic regression model by class**
+
+```{python}
+report = classification_report(y_test, lr_pred, labels=["Dropout", "Enrolled", "Graduate"], output_dict = True)
+
+per_class_results = pd.DataFrame(report).drop(columns = ["accuracy", "macro avg", "weighted avg"]).T.rename(columns = {
+  "precision" : "Precision",
+  "recall" : "Recall",
+  "f1-score" : "F1",
+  "support" : "# students"
+  }
+)
+per_class_results["# students"] = per_class_results["# students"].astype(int)
+per_class_results.style.format(precision=3)
+```
+
+```{python}
+#| label: fig-confusion
+#| fig-cap: "Confusion matrix for the tuned logistic regression model on the test students."
+
+ConfusionMatrixDisplay.from_predictions(
+  y_test,
+  lr_pred,
+  labels = ["Dropout", "Enrolled", "Graduate"],
+  cmap = "Blues"
+)
+
+plt.show()
+```
+
+The performance of the tuned model differed by the three student outcomes as shown in Table 6. For students that graduated, the model performed the strongest achieving an F1 score of 0.663. The model performed worse for dropouts and enrolled students with F1 scores of 0.508 and 0.356, respectively. Of the 442 test students that graduated, the model identified 269 of them correctly. Figure 5 shows the confusion matrix which uncovers where the errors were concentrated. Notably, 98 of the 442 test students that graduated were predicted as dropouts and 85 of test students that dropped out were classified as enrolled. The model was able to capture 145 of 284 of the test dropouts, with a recall of 0.511.
 
 # Discussion
 
 # References
 
-1. [Realinho, V., Vieira Martins, M., Machado, J., and Baptista, L. (2021). *Predict Students’ Dropout and Academic Success* (dataset). UCI Machine Learning Repository.]{#ref-data} [DOI 10.24432/C5MC89](https://doi.org/10.24432/C5MC89). [Dataset license (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/).
-2. [Realinho, V., Machado, J., Baptista, L., and Martins, M. V. (2022). *Predicting Student Dropout and Academic Success*. Data, 7(11), 146.]{#ref-paper} [Dataset paper](https://doi.org/10.3390/data7110146)
-3. [Scikit-learn developers. *Cross-validation*.]{#ref-validation} [User guide](https://scikit-learn.org/stable/modules/cross_validation.html)
-4. [Scikit-learn developers. *F1 score*.]{#ref-f1} [Metric definition and averaging options](https://scikit-learn.org/stable/modules/generated/sklearn.metrics.f1_score.html)
-
-
+1.  [Realinho, V., Vieira Martins, M., Machado, J., and Baptista, L. (2021). *Predict Students’ Dropout and Academic Success* (dataset). UCI Machine Learning Repository.]{#ref-data} [DOI 10.24432/C5MC89](https://doi.org/10.24432/C5MC89). [Dataset license (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/).
+2.  [Realinho, V., Machado, J., Baptista, L., and Martins, M. V. (2022). *Predicting Student Dropout and Academic Success*. Data, 7(11), 146.]{#ref-paper} [Dataset paper](https://doi.org/10.3390/data7110146)
+3.  [Scikit-learn developers. *Cross-validation*.]{#ref-validation} [User guide](https://scikit-learn.org/stable/modules/cross_validation.html)
+4.  [Scikit-learn developers. *F1 score*.]{#ref-f1} [Metric definition and averaging options](https://scikit-learn.org/stable/modules/generated/sklearn.metrics.f1_score.html)
