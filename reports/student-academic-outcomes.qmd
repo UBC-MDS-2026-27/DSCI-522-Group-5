@@ -109,9 +109,79 @@ test.to_csv(processed_dir / "test.csv", index=False)
 
 ## Exploratory analysis
 
-We counted outcomes, checked missing values and duplicate records, and used the source dictionary to interpret numeric category codes. For age and admission grade, we compared medians and the middle 50% of students within each outcome. For application route, program and financial status, we calculated percentages within each subgroup and reported its size. This matters because program enrollments range from eight to several hundred training students. We used these comparisons to propose features for classification. [1](#ref-data)
+We counted outcomes, checked missing values and duplicate records, and used the source dictionary to interpret numeric category codes. Most students enrolled in their late teens or early twenties. The median age was 20 years, but a few much older entrants, with ages reaching 70, pulled the mean up to 23.1 years. We therefore report the median, which describes the middle student and is less sensitive to extreme ages. For both age and admission grade, we compare each outcome group's median and interquartile range (the middle 50% of students). For application route, program and financial status, we calculated percentages within each subgroup and reported its size. This matters because program enrollments range from eight to several hundred training students. We used these comparisons to propose features for classification. [1](#ref-data)
 
 ```{python}
+from io import StringIO
+from xml.etree import ElementTree as ET
+
+def add_tip(artist, details, text):
+    """Associate one plotted mark with its tooltip text."""
+    key = f"mark-{len(details)}"
+    artist.set_gid(key)
+    details[key] = text
+
+def display_interactive_figure(fig, details, description):
+    """Embed the figure and its tooltips directly in the HTML report."""
+    buffer = StringIO()
+    with plt.rc_context({"svg.fonttype": "none"}):
+        fig.savefig(buffer, format="svg", bbox_inches="tight")
+    plt.close(fig)
+    ns = "http://www.w3.org/2000/svg"
+    ET.register_namespace("", ns)
+    ET.register_namespace("xlink", "http://www.w3.org/1999/xlink")
+    svg = ET.fromstring(buffer.getvalue())
+    svg.attrib.update({"role": "group", "aria-label": description})
+    seen = set()
+    for group in svg.iter(f"{{{ns}}}g"):
+        key = group.attrib.pop("id", None)
+        if key in details:
+            text = details[key]
+            group.attrib.update({"class": "chart-mark", "role": "img", "aria-label": text,
+                                 "tabindex": "-1" if text in seen else "0"})
+            seen.add(text)
+    markup = ET.tostring(svg, encoding="unicode")
+    display(HTML('<div class="interactive-figure">' + markup + """
+      <span class="chart-tooltip" aria-hidden="true" hidden></span>
+      <style>
+        .interactive-figure svg { max-width: 100%; height: auto; }
+        .interactive-figure svg text { pointer-events: none; }
+        .interactive-figure .chart-mark { cursor: help; }
+        .interactive-figure .chart-mark:focus-visible { outline: 2px solid #23547d; }
+        .chart-tooltip { position: fixed; z-index: 1000; pointer-events: none;
+          max-width: min(22rem, 90vw); padding: .4rem .65rem; background: #172735;
+          color: white; border-radius: .3rem; font: 0.9rem/1.4 system-ui; }
+      </style>
+      <script>
+        (() => {
+          const chart = document.currentScript.parentElement;
+          const tip = chart.querySelector(".chart-tooltip");
+          function show(event) {
+            const mark = event.target.closest(".chart-mark");
+            if (!mark) { tip.hidden = true; return; }
+            const box = mark.getBoundingClientRect();
+            const x = event.clientX ?? (box.left + box.width / 2);
+            const y = event.clientY ?? (box.top + box.height / 2);
+            tip.textContent = mark.getAttribute("aria-label");
+            tip.hidden = false;
+            tip.style.left = Math.max(4, Math.min(x + 12, innerWidth - tip.offsetWidth - 4)) + "px";
+            tip.style.top = (y + 14 + tip.offsetHeight < innerHeight
+              ? y + 14 : Math.max(4, y - tip.offsetHeight - 8)) + "px";
+          }
+          for (const event of ["pointerover", "pointermove", "click", "focusin"])
+            chart.addEventListener(event, show);
+          for (const event of ["pointerleave", "focusout"])
+            chart.addEventListener(event, () => { tip.hidden = true; });
+          chart.addEventListener("keydown", event => {
+            if (event.key === "Escape") tip.hidden = true;
+          });
+          document.addEventListener("pointerdown", event => {
+            if (!chart.contains(event.target)) tip.hidden = true;
+          });
+        })();
+      </script>
+    </div>"""))
+
 eda = train
 classes = ["Dropout", "Enrolled", "Graduate"]
 colors = ["#AD4824", "#49658D", "#167361"]
@@ -178,15 +248,17 @@ Table 1 shows why a simple missing-value check tells only part of the story. All
 
 ### How common was each academic outcome?
 
+::: {#fig-outcomes}
+
 ```{python}
-#| label: fig-outcomes
-#| fig-cap: "Academic status at the end of the normal program duration. Each bar gives the percentage and number of students out of 3,539."
-#| fig-alt: "Of the training students, 32.1 percent dropped out, 17.9 percent remained enrolled, and 49.9 percent graduated."
 counts = eda["Target"].value_counts().reindex(classes)
 shares = 100 * counts / counts.sum()
 fig, ax = plt.subplots(figsize=(8.2, 2.8), layout="constrained")
-ax.barh(classes, shares, color=colors, height=0.58)
+details = {}
+bars = ax.barh(classes, shares, color=colors, height=0.58)
 for pos, (share, count) in enumerate(zip(shares, counts)):
+    add_tip(bars[pos], details,
+            f"{classes[pos]}. {count:,} of {counts.sum():,} training students ({share:.1f}%).")
     ax.text(share + 1, pos, f"{share:.1f}%  ({count:,})", va="center")
 ax.invert_yaxis()
 ax.set_xlim(0, 64)
@@ -195,18 +267,24 @@ ax.xaxis.set_major_formatter(PercentFormatter(100, decimals=0))
 ax.set_xlabel("Share of all training students")
 ax.spines[["top", "right", "left"]].set_visible(False)
 ax.tick_params(axis="y", length=0)
-plt.show()
+display_interactive_figure(fig, details, "Of the training students, 32.1 percent dropped out, 17.9 percent remained enrolled, and 49.9 percent graduated.")
 ```
+
+Academic status at the end of the normal program duration. Each bar gives the percentage and number of students out of 3,539.
+
+:::
+
+Hover over a mark, tap it, or use the Tab key to read its exact values in any figure.
 
 In @fig-outcomes, 1,767 students graduated, 1,137 dropped out and 635 were still enrolled. Always predicting graduation would get 49.9% of the training records right while missing every student who dropped out or remained enrolled. An adviser therefore needs information that helps distinguish all three groups. Admission grade and age are two natural places to start.
 
 ### Do admission grades or ages differ across the three outcomes?
 
+::: {#fig-entry}
+
 ```{python}
-#| label: fig-entry
-#| fig-cap: "Age and admission grade by outcome. Dots mark medians and thick lines span the middle 50% of students. The colors follow the labeled rows in each panel, with orange for dropout, blue for continued enrollment and green for graduation."
-#| fig-alt: "Median entry ages range from 19 to 23 across outcomes. Median admission grades cluster near 125, with substantial overlap in the middle halves."
 fig, axes = plt.subplots(1, 2, figsize=(8.2, 3.0), layout="constrained")
+details = {}
 for ax, measure, label in zip(
     axes,
     ["Age at enrollment", "Admission grade"],
@@ -214,17 +292,74 @@ for ax, measure, label in zip(
 ):
     stats = eda.groupby("Target")[measure].quantile([0.25, 0.5, 0.75]).unstack().loc[classes]
     for position, (outcome, row) in enumerate(stats.iterrows()):
-        ax.plot([row[0.25], row[0.75]], [position, position], lw=7,
+        line, = ax.plot([row[0.25], row[0.75]], [position, position], lw=7,
                 color=colors[position], solid_capstyle="round", alpha=0.6)
-        ax.scatter(row[0.5], position, color=colors[position], s=65,
+        dot = ax.scatter(row[0.5], position, color=colors[position], s=65,
                    edgecolor="white", linewidth=1, zorder=3)
+        text = (f"{outcome}, {label}. Median {row[0.5]:g}. "
+                f"Middle 50% from {row[0.25]:g} to {row[0.75]:g}.")
+        add_tip(line, details, text)
+        add_tip(dot, details, text)
     ax.set_yticks(range(3), classes)
     ax.set_ylim(2.5, -0.5)
     ax.set_xlabel(label)
     ax.grid(axis="x", alpha=0.2)
     ax.spines[["top", "right", "left"]].set_visible(False)
-plt.show()
+display_interactive_figure(fig, details, "Median entry ages range from 19 to 23 across outcomes. Median admission grades cluster near 125, with substantial overlap in the middle halves.")
 ```
+
+Age and admission grade by outcome. Dots mark medians and thick lines span the middle 50% of students. The colors follow the labeled rows in each panel, with orange for dropout, blue for continued enrollment and green for graduation.
+
+:::
+
+The median-and-interval plot (@fig-entry) shows where the middle half of each group falls. How far do ages and grades extend beyond that middle half?
+
+::: {#fig-entry-box}
+
+```{python}
+fig, axes = plt.subplots(1, 2, figsize=(8.2, 3.3), layout="constrained")
+details = {}
+for ax, measure, label in zip(
+    axes,
+    ["Age at enrollment", "Admission grade"],
+    ["Age at enrollment (years)", "Admission grade (points out of 200)"],
+):
+    samples = [eda.loc[eda["Target"].eq(outcome), measure] for outcome in classes]
+    boxes = ax.boxplot(
+        samples, orientation="horizontal", patch_artist=True, whis=1.5, widths=0.55,
+        medianprops={"color": "black", "linewidth": 1.7},
+        showfliers=False,  # Draw repeated outlying values once and report their frequency.
+    )
+    for i, (box, color, values) in enumerate(zip(boxes["boxes"], colors, samples)):
+        outcome = classes[i]
+        q1, median, q3 = values.quantile([0.25, 0.5, 0.75])
+        whiskers = boxes["whiskers"][2*i:2*i+2]
+        low, high = [line.get_xdata()[-1] for line in whiskers]
+        text = (f"{outcome}, {label}. Median {median:g}. Middle 50% from {q1:g} to {q3:g}. "
+                f"Whiskers from {low:g} to {high:g}. Group size {len(values):,}.")
+        for artist in [box, boxes["medians"][i], *whiskers, *boxes["caps"][2*i:2*i+2]]:
+            add_tip(artist, details, text)
+        outside = values[(values < low) | (values > high)].value_counts().sort_index()
+        for value, count in outside.items():
+            point, = ax.plot(value, i + 1, "o", markersize=3, markerfacecolor="none",
+                             markeredgecolor="black", alpha=0.5)
+            noun = "student" if count == 1 else "students"
+            add_tip(point, details, f"{outcome}, {label}. {value:g} ({count} {noun}).")
+        box.set_facecolor(color)
+        box.set_alpha(0.65)
+    ax.set_yticks(range(1, len(classes) + 1), classes)
+    ax.invert_yaxis()
+    ax.set_xlabel(label)
+    ax.grid(axis="x", alpha=0.2)
+    ax.spines[["top", "right", "left"]].set_visible(False)
+display_interactive_figure(fig, details, "All three outcome groups have older entrants beyond the upper age whisker. Admission grade boxes overlap across the three groups.")
+```
+
+Enrollment age and admission grade by outcome in the training set. The line inside each box is the median. Boxes span the middle 50%, and whiskers reach the most extreme observed values within 1.5 interquartile ranges of the box. Each point beyond a whisker marks a distinct observed value. Its tooltip gives the number of students at that value.
+
+:::
+
+In @fig-entry-box, older entrants appear beyond the upper age whisker in every outcome group. Even among graduates, whose median entry age was 19, the oldest entrant was 62. The admission grade boxes overlap substantially across all three outcomes.
 
 The dropout and still-enrolled groups had the same median admission grade, **124.2 out of 200** (@fig-entry). Even the graduate median of 127.3 sits inside the middle half of the dropout group, which spans 115.2 to 133.8. A grade near 125 would therefore give the adviser little basis, on its own, for distinguishing these outcomes.
 
@@ -232,10 +367,9 @@ Age shows a clearer difference. The median entry ages were 23, 20 and 19 years f
 
 ### How does the difference between application routes change among older entrants?
 
+::: {#fig-route}
+
 ```{python}
-#| label: fig-route
-#| fig-cap: "Dropout share within each application route, first across all ages and then among students aged 24 or older. Parentheses give the size of each group. The second comparison uses a subset of the first."
-#| fig-alt: "The over-23 route has 56.1 percent dropout in both comparisons. Other routes have 26.9 percent across all ages and 52.0 percent at ages 24 and older."
 route_rows = []
 for population, frame in [("All ages", eda), ("Age 24 and older", eda.loc[eda["Age at enrollment"] >= 24])]:
     is_over_23_route = frame["Application mode"].eq(39)
@@ -246,11 +380,18 @@ for population, frame in [("All ages", eda), ("Age 24 and older", eda.loc[eda["A
 
 routes = pd.DataFrame(route_rows, columns=["Population", "Route", "Students", "Dropouts", "Share"])
 fig, ax = plt.subplots(figsize=(8.2, 3.4), layout="constrained")
+bar_details = {}
 for offset, name, color in [(-0.18, "Over-23 route", "#325563"), (0.18, "Other routes", "#8495AA")]:
     group = routes[routes["Route"] == name]
     positions = [i + offset for i in range(len(group))]
-    ax.barh(positions, group["Share"], height=0.30, color=color, label=name)
-    for y, row in zip(positions, group.itertuples()):
+    bars = ax.barh(positions, group["Share"], height=0.30, color=color, label=name)
+    for bar, y, row in zip(bars, positions, group.itertuples()):
+        key = f"route-{row.Index}"
+        bar.set_gid(key)
+        bar_details[key] = (
+            f"{row.Population}, {name}. {row.Dropouts:,} of {row.Students:,} students "
+            f"dropped out ({row.Share:.1f}%)."
+        )
         ax.text(row.Share + 0.9, y, f"{row.Share:.1f}%  ({row.Students:,})", va="center", fontsize=10)
 ax.set_yticks([0, 1], ["All ages", "Age 24 and older"])
 ax.invert_yaxis()
@@ -261,8 +402,12 @@ ax.set_xlabel("Share who dropped out within each group")
 ax.legend(loc="lower left", bbox_to_anchor=(0, 1), frameon=False, ncol=2)
 ax.spines[["top", "right", "left"]].set_visible(False)
 ax.tick_params(axis="y", length=0)
-plt.show()
+display_interactive_figure(fig, bar_details, "Dropout shares by application route and age group.")
 ```
+
+Dropout share within each application route, first across all ages and then among students aged 24 or older. Parentheses give the size of each group. The second comparison uses a subset of the first.
+
+:::
 
 Across all ages, 56.1% of students entering through the over-23 route dropped out, compared with 26.9% through other routes (@fig-route). But those two groups draw from different age ranges. All 631 students on the over-23 route were at least 24. When we apply the same age restriction to other routes, 375 students remain and their dropout share rises to 52.0%.
 
@@ -270,10 +415,9 @@ The observed gap falls from **29.2 to 4.1 percentage points**. That gives us a r
 
 ### What can two programs with similar dropout shares tell us about continued enrollment?
 
+::: {#fig-programs}
+
 ```{python}
-#| label: fig-programs
-#| fig-cap: "Percentage of students in each outcome within each program. Each row represents 100% of a program’s training students. Labels give the group size. Displayed percentages are rounded."
-#| fig-alt: "Outcome shares for all 17 programs, largest first. Nursing has a large graduate share. Informatics Engineering and Evening Management have similar dropout shares but different continued enrollment shares."
 program_names = {
     33: "Biofuel Production Technologies", 171: "Animation and Multimedia Design",
     8014: "Social Service (evening)", 9003: "Agronomy", 9070: "Communication Design",
@@ -286,10 +430,18 @@ programs = outcome_mix(eda["Course"].map(program_names), eda["Target"]).sort_val
 fig, ax = plt.subplots(figsize=(9.7, 7.7), layout="constrained")
 labels = [f"{name}  ({int(n):,})" for name, n in programs["Students"].items()]
 left = pd.Series(0.0, index=programs.index)
+program_counts = pd.crosstab(eda["Course"].map(program_names), eda["Target"])
+bar_details = {}
 for outcome, color in zip(classes, colors):
     widths = programs[outcome]
-    ax.barh(labels, widths, left=left, color=color, label=outcome, height=0.72)
-    for y, (start, width) in enumerate(zip(left, widths)):
+    bars = ax.barh(labels, widths, left=left, color=color, label=outcome, height=0.72)
+    for y, (bar, program, start, width) in enumerate(zip(bars, programs.index, left, widths)):
+        key = f"program-{y}-{outcome}"
+        bar.set_gid(key)
+        bar_details[key] = (
+            f"{program}, {outcome}. {program_counts.loc[program, outcome]:,} of "
+            f"{programs.loc[program, 'Students']:,} students ({width:.1f}%)."
+        )
         if width >= 6:
             ax.text(start + width / 2, y, f"{width:.0f}", ha="center", va="center", color="white", fontsize=9)
     left = left + widths
@@ -300,8 +452,12 @@ ax.set_xlabel("Share of students in each program")
 ax.legend(loc="lower center", bbox_to_anchor=(0.5, 1), ncol=3, frameon=False)
 ax.tick_params(axis="y", length=0, labelsize=9)
 ax.spines[["top", "right", "left"]].set_visible(False)
-plt.show()
+display_interactive_figure(fig, bar_details, "Academic outcomes within each program.")
 ```
+
+Percentage of students in each outcome within each program. Each row represents 100% of a program’s training students. Labels give the group size. Displayed percentages are rounded.
+
+:::
 
 Evening Management and Informatics Engineering look almost identical if we compare only dropout, at **53.8% and 53.2%** (@fig-programs). The difference emerges when we ask where the rest of their students were at the cutoff. In Informatics Engineering, 36.9% were still enrolled and 9.9% had graduated. In Evening Management, 21.0% were still enrolled and 25.2% had graduated. That distinction is precisely what the three-class prediction question preserves.
 
@@ -444,11 +600,11 @@ test_results = pd.DataFrame(
       accuracy_score(y_test, baseline_pred),
       accuracy_score(y_test, lr_pred)
     ],
-    "Precision" : [
+    "Macro Precision" : [
       precision_score(y_test, baseline_pred, average = "macro", zero_division = 0),
       precision_score(y_test, lr_pred, average = "macro", zero_division = 0)
     ],
-    "Recall" : [
+    "Macro Recall" : [
       recall_score(y_test, baseline_pred, average = "macro"),
       recall_score(y_test, lr_pred, average = "macro")
     ],
@@ -481,21 +637,37 @@ per_class_results["# students"] = per_class_results["# students"].astype(int)
 per_class_results.style.format(precision=3)
 ```
 
-```{python}
-#| label: fig-confusion
-#| fig-cap: "Confusion matrix for the tuned logistic regression model on the test students."
+::: {#fig-confusion}
 
-ConfusionMatrixDisplay.from_predictions(
+```{python}
+from matplotlib.patches import Rectangle
+
+matrix = ConfusionMatrixDisplay.from_predictions(
   y_test,
   lr_pred,
   labels = ["Dropout", "Enrolled", "Graduate"],
   cmap = "Blues"
 )
 
-plt.show()
+fig = matrix.figure_
+details = {}
+for i, actual in enumerate(classes):
+    total = matrix.confusion_matrix[i].sum()
+    for j, predicted in enumerate(classes):
+        count = matrix.confusion_matrix[i, j]
+        cell = Rectangle((j - 0.5, i - 0.5), 1, 1, facecolor=(1, 1, 1, 0.001),
+                         edgecolor="none", zorder=4)
+        matrix.ax_.add_patch(cell)
+        add_tip(cell, details, f"Actual {actual}, predicted {predicted}. {count} of "
+                f"{total} students with actual outcome {actual} ({100 * count / total:.1f}%).")
+display_interactive_figure(fig, details, "Confusion matrix for the tuned logistic regression model on the test students.")
 ```
 
-The performance of the tuned model differed by the three student outcomes as shown in Table 6. For students that graduated, the model performed the strongest achieving an F1 score of 0.663. The model performed worse for dropouts and enrolled students with F1 scores of 0.508 and 0.356, respectively. Of the 442 test students that graduated, the model identified 269 of them correctly. Figure 5 shows the confusion matrix which uncovers where the errors were concentrated. Notably, 98 of the 442 test students that graduated were predicted as dropouts and 85 of test students that dropped out were classified as enrolled. The model was able to capture 145 of 284 of the test dropouts, with a recall of 0.511.
+Confusion matrix for the tuned logistic regression model on the test students.
+
+:::
+
+The performance of the tuned model differed by the three student outcomes as shown in Table 6. For students that graduated, the model performed the strongest achieving an F1 score of 0.663. The model performed worse for dropouts and enrolled students with F1 scores of 0.508 and 0.356, respectively. Of the 442 test students that graduated, the model identified 269 of them correctly. The confusion matrix in @fig-confusion shows where the errors were concentrated. Notably, 98 of the 442 test students that graduated were predicted as dropouts and 85 of test students that dropped out were classified as enrolled. The model was able to capture 145 of 284 of the test dropouts, with a recall of 0.511.
 
 # Discussion
 
